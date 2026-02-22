@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { JetBrains_Mono, Inter } from "next/font/google";
-import "./globals.css";
+import "../globals.css";
 import { GoeyToaster } from "@/components/ui/goey-toaster";
 
 const sans = Inter({
