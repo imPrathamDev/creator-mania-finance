@@ -32,7 +32,12 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { Building2, Sparkles, UsersRound } from "lucide-react";
+import {
+  Building2,
+  ChartNoAxesCombined,
+  Sparkles,
+  UsersRound,
+} from "lucide-react";
 import Link from "next/link";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
@@ -106,10 +111,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               className="data-[slot=sidebar-menu-button]:p-1.5!"
             >
               <Link href="/">
-                <IconInnerShadowTop className="size-5!" />
-                <div className="flex flex-col -gap-1">
-                  <span className="text-base font-semibold">CreatorMania</span>
-                  <span className="text-xs tracking-widest">Finance</span>
+                <ChartNoAxesCombined className="size-6!" />
+                <div className="flex flex-col">
+                  <span className="text-sm font-semibold">CreatorMania</span>
+                  <span className="text-xs tracking-widest -mt-1">Finance</span>
                 </div>
               </Link>
             </SidebarMenuButton>
