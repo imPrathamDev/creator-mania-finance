@@ -83,9 +83,10 @@ export type Database = {
           },
         ];
       };
-      clients: {
+      contacts: {
         Row: {
           address: string | null;
+          category: string | null;
           company: string | null;
           created_at: string;
           email: string | null;
@@ -94,11 +95,13 @@ export type Database = {
           name: string;
           notes: string | null;
           phone: string | null;
+          type: Database["public"]["Enums"]["contact_type"];
           updated_at: string;
           website: string | null;
         };
         Insert: {
           address?: string | null;
+          category?: string | null;
           company?: string | null;
           created_at?: string;
           email?: string | null;
@@ -107,11 +110,13 @@ export type Database = {
           name: string;
           notes?: string | null;
           phone?: string | null;
+          type?: Database["public"]["Enums"]["contact_type"];
           updated_at?: string;
           website?: string | null;
         };
         Update: {
           address?: string | null;
+          category?: string | null;
           company?: string | null;
           created_at?: string;
           email?: string | null;
@@ -120,6 +125,7 @@ export type Database = {
           name?: string;
           notes?: string | null;
           phone?: string | null;
+          type?: Database["public"]["Enums"]["contact_type"];
           updated_at?: string;
           website?: string | null;
         };
@@ -238,7 +244,7 @@ export type Database = {
         Row: {
           amount: number;
           attachments: Json | null;
-          client_id: string | null;
+          contact_id: string | null;
           created_at: string;
           currency: string;
           description: string | null;
@@ -256,12 +262,11 @@ export type Database = {
           transaction_date: string;
           type: Database["public"]["Enums"]["transaction_type"];
           updated_at: string;
-          vendor_id: string | null;
         };
         Insert: {
           amount: number;
           attachments?: Json | null;
-          client_id?: string | null;
+          contact_id?: string | null;
           created_at?: string;
           currency?: string;
           description?: string | null;
@@ -279,12 +284,11 @@ export type Database = {
           transaction_date: string;
           type: Database["public"]["Enums"]["transaction_type"];
           updated_at?: string;
-          vendor_id?: string | null;
         };
         Update: {
           amount?: number;
           attachments?: Json | null;
-          client_id?: string | null;
+          contact_id?: string | null;
           created_at?: string;
           currency?: string;
           description?: string | null;
@@ -302,93 +306,36 @@ export type Database = {
           transaction_date?: string;
           type?: Database["public"]["Enums"]["transaction_type"];
           updated_at?: string;
-          vendor_id?: string | null;
         };
         Relationships: [
           {
-            foreignKeyName: "transactions_client_id_fkey";
-            columns: ["client_id"];
+            foreignKeyName: "transactions_contact_id_fkey";
+            columns: ["contact_id"];
             isOneToOne: false;
-            referencedRelation: "clients";
+            referencedRelation: "contacts";
             referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "transactions_client_id_fkey";
-            columns: ["client_id"];
+            foreignKeyName: "transactions_contact_id_fkey";
+            columns: ["contact_id"];
             isOneToOne: false;
-            referencedRelation: "v_client_summary";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "transactions_vendor_id_fkey";
-            columns: ["vendor_id"];
-            isOneToOne: false;
-            referencedRelation: "v_vendor_summary";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "transactions_vendor_id_fkey";
-            columns: ["vendor_id"];
-            isOneToOne: false;
-            referencedRelation: "vendors";
+            referencedRelation: "v_contact_summary";
             referencedColumns: ["id"];
           },
         ];
       };
-      vendors: {
-        Row: {
-          address: string | null;
-          category: string | null;
-          company: string | null;
-          created_at: string;
-          email: string | null;
-          id: string;
-          is_active: boolean;
-          name: string;
-          notes: string | null;
-          phone: string | null;
-          updated_at: string;
-          website: string | null;
-        };
-        Insert: {
-          address?: string | null;
-          category?: string | null;
-          company?: string | null;
-          created_at?: string;
-          email?: string | null;
-          id?: string;
-          is_active?: boolean;
-          name: string;
-          notes?: string | null;
-          phone?: string | null;
-          updated_at?: string;
-          website?: string | null;
-        };
-        Update: {
-          address?: string | null;
-          category?: string | null;
-          company?: string | null;
-          created_at?: string;
-          email?: string | null;
-          id?: string;
-          is_active?: boolean;
-          name?: string;
-          notes?: string | null;
-          phone?: string | null;
-          updated_at?: string;
-          website?: string | null;
-        };
-        Relationships: [];
-      };
     };
     Views: {
-      v_client_summary: {
+      v_contact_summary: {
         Row: {
           company: string | null;
+          contact_type: Database["public"]["Enums"]["contact_type"] | null;
           id: string | null;
           last_transaction: string | null;
           name: string | null;
+          net_amount: number | null;
           total_received: number | null;
+          total_spent: number | null;
           total_transactions: number | null;
         };
         Relationships: [];
@@ -406,7 +353,9 @@ export type Database = {
       v_pending_payments: {
         Row: {
           amount: number | null;
-          client_name: string | null;
+          company: string | null;
+          contact_name: string | null;
+          contact_type: Database["public"]["Enums"]["contact_type"] | null;
           currency: string | null;
           days_until_due: number | null;
           due_date: string | null;
@@ -416,7 +365,6 @@ export type Database = {
           reference_number: string | null;
           title: string | null;
           type: Database["public"]["Enums"]["transaction_type"] | null;
-          vendor_name: string | null;
         };
         Relationships: [];
       };
@@ -431,23 +379,12 @@ export type Database = {
         };
         Relationships: [];
       };
-      v_vendor_summary: {
-        Row: {
-          category: string | null;
-          company: string | null;
-          id: string | null;
-          last_transaction: string | null;
-          name: string | null;
-          total_spent: number | null;
-          total_transactions: number | null;
-        };
-        Relationships: [];
-      };
     };
     Functions: {
       [_ in never]: never;
     };
     Enums: {
+      contact_type: "client" | "vendor" | "both";
       payment_method:
         | "cash"
         | "bank_transfer"
@@ -598,6 +535,7 @@ export const Constants = {
   },
   public: {
     Enums: {
+      contact_type: ["client", "vendor", "both"],
       payment_method: [
         "cash",
         "bank_transfer",
