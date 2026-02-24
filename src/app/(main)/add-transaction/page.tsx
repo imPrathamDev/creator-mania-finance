@@ -1,6 +1,13 @@
 "use client";
 
-import { BanknoteArrowDown, BanknoteArrowUp, Plus, X } from "lucide-react";
+import {
+  BanknoteArrowDown,
+  BanknoteArrowUp,
+  CalendarClock,
+  InfoIcon,
+  Plus,
+  X,
+} from "lucide-react";
 import React, {
   ReactNode,
   useCallback,
@@ -45,6 +52,14 @@ import { Contact } from "@/types/hooks/use-contacts";
 import { createClient } from "@/lib/supabase/client";
 import { goeyToast } from "goey-toast";
 import { Spinner } from "@/components/ui/spinner";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 // ── Reusable reveal wrapper ──────────────────────────────────────────────────
 
@@ -182,6 +197,8 @@ const AddTransaction = () => {
     notes: string;
     tags: ({ id: string; name: string } | string)[];
     amount: number | undefined;
+    reminder_message?: string;
+    reminder_date?: Date;
   }>({
     title: "",
     description: "",
@@ -341,6 +358,22 @@ const AddTransaction = () => {
           }),
         ),
       ]);
+
+      if (
+        (form.payment_status === "partially_paid" ||
+          form.payment_status === "pending") &&
+        form.reminder_date
+      ) {
+        setWaitState("Setting up reminder...");
+        await supabase.from("reminders").insert({
+          remind_at: form.reminder_date.toISOString(),
+          transaction_id: tnx.id,
+          ...(form.reminder_message &&
+            form.reminder_message.trim().length > 0 && {
+              message: form.reminder_message.trim(),
+            }),
+        });
+      }
 
       setForm({
         amount: undefined,
@@ -656,6 +689,57 @@ const AddTransaction = () => {
           placeholder: "Notes (Comments)",
           rows: 5
         }} setValues={setForm as any} values={form as any} hideLabel /> */}
+
+        {form.payment_status === "partially_paid" ||
+          (form.payment_status === "pending" && (
+            <Card className="w-full">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-1">
+                  <CalendarClock className="size-4" /> Set Reminder
+                </CardTitle>
+                <CardDescription>
+                  You can set reminders for income and expenses, we will notify
+                  you via email.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-2">
+                <FormFields
+                  input={{
+                    type: "date",
+                    key: "reminder_date",
+                    name: "reminder_date",
+                    title: "Reminder Date",
+                  }}
+                  setValues={setForm as any}
+                  values={form as any}
+                  hideLabel
+                  disabled={wait}
+                />
+                <FormFields
+                  disabled={wait}
+                  input={{
+                    type: "textarea",
+                    key: "reminder_message",
+                    name: "reminder_message",
+                    title: "Reminder Message",
+                    placeholder: "Message here (Optional)",
+                    rows: 5,
+                  }}
+                  setValues={setForm as any}
+                  values={form as any}
+                  hideLabel
+                />
+                <Alert>
+                  <InfoIcon />
+                  <AlertTitle>Important Note</AlertTitle>
+                  <AlertDescription>
+                    There can be few hours difference in reminder notifications
+                    because of timezone and cron job interval.
+                  </AlertDescription>
+                </Alert>
+              </CardContent>
+            </Card>
+          ))}
 
         <Button
           onClick={handleAddTransaction}
