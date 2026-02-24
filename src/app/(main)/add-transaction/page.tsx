@@ -1,16 +1,27 @@
 "use client";
 
-import { BanknoteArrowDown, BanknoteArrowUp, X } from "lucide-react";
-import React, { ReactNode, useMemo, useState } from "react";
+import { BanknoteArrowDown, BanknoteArrowUp, Plus, X } from "lucide-react";
+import React, {
+  ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { FormFields } from "@/components/custom/custom-form";
 import {
   Combobox,
+  ComboboxChip,
+  ComboboxChips,
+  ComboboxChipsInput,
   ComboboxContent,
   ComboboxEmpty,
   ComboboxInput,
   ComboboxItem,
   ComboboxList,
+  ComboboxValue,
+  useComboboxAnchor,
 } from "@/components/ui/combobox";
 import { useContacts } from "@/hooks/use-contacts";
 import { Button } from "@/components/ui/button";
@@ -28,6 +39,12 @@ import {
   usePaymentMethods,
   usePaymentStatuses,
 } from "@/hooks/use-payments-helpers";
+import { useTags } from "@/hooks/use-tags";
+import { Tag } from "@/types/hooks/use-tags";
+import { Contact } from "@/types/hooks/use-contacts";
+import { createClient } from "@/lib/supabase/client";
+import { goeyToast } from "goey-toast";
+import { Spinner } from "@/components/ui/spinner";
 
 // ── Reusable reveal wrapper ──────────────────────────────────────────────────
 
@@ -62,7 +79,7 @@ const RevealGroup = ({
   show: boolean;
   children: ReactNode;
 }) => (
-  <AnimatePresence>
+  <AnimatePresence initial={false}>
     {show && (
       <motion.div className="flex flex-col items-center gap-4 w-full">
         {React.Children.map(children, (child, i) => (
@@ -163,6 +180,8 @@ const AddTransaction = () => {
     payment_method: PaymentMethod;
     payment_status: PaymentStatus;
     notes: string;
+    tags: ({ id: string; name: string } | string)[];
+    amount: number | undefined;
   }>({
     title: "",
     description: "",
@@ -170,20 +189,199 @@ const AddTransaction = () => {
     payment_method: "upi",
     payment_status: "paid",
     notes: "",
+    tags: [],
+    amount: undefined,
   });
   const { contacts, setSearch } = useContacts();
   const [open, setOpen] = useState(false);
   const [inputValue, setInputValue] = useState<string>("");
+  const [tagInputValue, setTagInputValue] = useState<string>("");
   const { paymentMethods } = usePaymentMethods();
   const { paymentStatuses } = usePaymentStatuses();
+  const anchor = useComboboxAnchor();
+  const { tags, setSearch: setTagsSearch } = useTags();
+  const [wait, setWait] = useState(false);
+  const [waitSate, setWaitState] = useState("Please wait...");
+  const [cachedTags, setCacheTags] = useState<Tag[]>([]);
+
+  const handleLabel = useCallback(
+    (contact: string) => {
+      console.log(contact);
+
+      const name = contacts.find((f) => f.id === contact)?.name;
+      return name ?? "";
+    },
+    [contacts],
+  );
+
+  const handleAddToTags = useCallback(
+    ({ id, name }: { id: string; name: string }) => {
+      setForm((prev) => ({
+        ...prev,
+        tags: [
+          ...prev.tags,
+          ...(prev.tags.some((s) => typeof s !== "string" && s.id !== id)
+            ? [{ id, name }]
+            : []),
+        ],
+      }));
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (tags.length > 0) {
+      setCacheTags((prev) => {
+        const ids = new Set(prev.map((t) => t.id));
+        return [...prev, ...tags.filter((t) => !ids.has(t.id))];
+      });
+    }
+  }, [tags]);
+
+  const handleAddTransaction = useCallback(async () => {
+    if (
+      !(form.title.length > 0) ||
+      !form.contact ||
+      type == null ||
+      form.amount === undefined
+    ) {
+      goeyToast.error("Invalid Input", {
+        description: "Please fill all necessary fields.",
+      });
+      return;
+    }
+    try {
+      setWait(true);
+      const unlinkedTags = form.tags.filter((f) => typeof f === "string");
+      const linkedTags = form.tags.filter((f) => typeof f !== "string");
+      const supabase = createClient();
+      let c: string;
+      const tagsColors = [
+        "#8ECAE6",
+        "#B7E4C7",
+        "#E5989B",
+        "#B1A7A6",
+        "#E9C46A",
+        "#93A8AC",
+        "#A8DADC",
+        "#F4A261",
+        "#BC4B51",
+        "#8D99AE",
+      ];
+      setWaitState("Linking contact...");
+      if (typeof form.contact === "string") {
+        const { data: contactData, error: errContact } = await supabase
+          .from("contacts")
+          .insert({
+            name: form.contact,
+            type: type === "expense" ? "vendor" : "client",
+          })
+          .select("id")
+          .single();
+
+        if (errContact) {
+          setWait(false);
+          goeyToast.error(errContact.message);
+          return;
+        }
+
+        c = contactData.id;
+      } else {
+        c = form.contact.id;
+      }
+      setWaitState("Recording transaction...");
+      const { data: tnx, error: errTnx } = await supabase
+        .from("transactions")
+        .insert({
+          amount: form.amount,
+          title: form.title,
+          description: form.description,
+          transaction_date: form.date.toISOString(),
+          type,
+          contact_id: c,
+          payment_method: form.payment_method,
+          payment_status: form.payment_status,
+          notes: form.notes,
+        })
+        .select("*")
+        .single();
+
+      if (errTnx) {
+        setWait(false);
+        goeyToast.error(errTnx.message);
+        return;
+      }
+      setWaitState("Linking tags...");
+      const newTags = await Promise.all(
+        unlinkedTags.map((t) =>
+          supabase
+            .from("tags")
+            .insert({
+              name: t,
+              color: tagsColors[Math.floor(Math.random() * tagsColors.length)],
+            })
+            .select("*")
+            .single(),
+        ),
+      );
+
+      await Promise.all([
+        ...newTags
+          .filter((f) => f.error === null)
+          .map((g) =>
+            supabase.from("transaction_tags").insert({
+              tag_id: g.data.id,
+              transaction_id: tnx.id,
+            }),
+          ),
+        ...linkedTags.map((g) =>
+          supabase.from("transaction_tags").insert({
+            tag_id: g.id,
+            transaction_id: tnx.id,
+          }),
+        ),
+      ]);
+
+      setForm({
+        amount: undefined,
+        date: new Date(),
+        description: "",
+        notes: "",
+        payment_method: "upi",
+        payment_status: "paid",
+        tags: [],
+        title: "",
+        contact: undefined,
+      });
+      setWait(false);
+      setWaitState("Please wait...");
+      setType(null);
+
+      goeyToast.success("Transaction added successfully.", {
+        description: "You can check on dashboard.",
+      });
+    } catch (error) {
+      console.log(error);
+      setWait(false);
+      goeyToast.error("Something went wrong.");
+      return;
+    }
+  }, [form, type]);
+
   return (
     <motion.div
       layout
-      className="max-w-xl mx-auto h-full flex flex-col justify-center items-center gap-4"
+      transition={{
+        layout: { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] },
+      }}
+      className="max-w-xl mx-auto h-full flex flex-col justify-center items-center gap-4 py-8"
     >
       {/* Amount */}
       <motion.div
         layout
+        transition={{
+          layout: { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] },
+        }}
         className="grid gap-1 justify-center items-center text-center"
       >
         <span className="text-xs uppercase font-medium text-primary">
@@ -195,12 +393,25 @@ const AddTransaction = () => {
             type="number"
             className="outline-none field-sizing-content font-semibold font-mono bg-transparent caret-primary"
             placeholder="0000"
+            value={form.amount}
+            onChange={(e) =>
+              setForm((prev) => ({
+                ...prev,
+                amount: parseInt(e.target.value),
+              }))
+            }
           />
         </div>
       </motion.div>
 
       {/* Type selector */}
-      <motion.div layout className="grid gap-2 w-full text-center">
+      <motion.div
+        layout
+        transition={{
+          layout: { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] },
+        }}
+        className="grid gap-2 w-full text-center"
+      >
         {/* <span className="text-xs uppercase font-medium text-primary">
           Select Type
         </span> */}
@@ -221,6 +432,7 @@ const AddTransaction = () => {
           setValues={setForm as any}
           values={form as any}
           hideLabel
+          disabled={wait}
         />
         <FormFields
           input={{
@@ -234,6 +446,7 @@ const AddTransaction = () => {
           setValues={setForm as any}
           values={form as any}
           hideLabel
+          disabled={wait}
         />
         <FormFields
           input={{
@@ -245,6 +458,7 @@ const AddTransaction = () => {
           setValues={setForm as any}
           values={form as any}
           hideLabel
+          disabled={wait}
         />
 
         <Combobox
@@ -253,29 +467,32 @@ const AddTransaction = () => {
           onOpenChange={(value) => {
             setOpen(value);
           }}
-          onValueChange={
-            ((value: { id: string; name: string }) => {
-              if (value) {
-                setForm((prev) => ({
-                  ...prev,
-                  contact: {
-                    id: value.id,
-                    name: value.name,
-                  },
-                }));
-              }
-            }) as any
-          }
+          disabled={wait}
+          // onValueChange={(value) => {
+          //   if (value && typeof value === "string") {
+          //     setForm((prev) => ({
+          //       ...prev,
+          //       contact: {
+          //         id: value,
+          //       },
+          //     }));
+          //   }
+          // }}
           onInputValueChange={(search) => {
             setInputValue(search);
-            setSearch(search); // triggers your useContacts search
+            if (open) {
+              setSearch(search); // triggers your useContacts search
+            }
           }}
+          itemToStringLabel={handleLabel}
         >
           <ComboboxInput
             placeholder={
               typeof form.contact === "string"
                 ? form.contact
-                : "Select a contact"
+                : form.contact
+                  ? form.contact.name
+                  : "Select a contact"
             }
             className="border-transparent bg-muted rounded-lg"
             showClear
@@ -299,7 +516,19 @@ const AddTransaction = () => {
             </ComboboxEmpty>
             <ComboboxList>
               {(item) => (
-                <ComboboxItem key={item.id} value={item.id}>
+                <ComboboxItem
+                  onClick={() => {
+                    setForm((prev) => ({
+                      ...prev,
+                      contact: {
+                        id: item.id,
+                        name: item.name,
+                      },
+                    }));
+                  }}
+                  key={item.id}
+                  value={item.id}
+                >
                   {item.name}
                 </ComboboxItem>
               )}
@@ -317,7 +546,7 @@ const AddTransaction = () => {
               }));
             }}
           >
-            <SelectTrigger className="w-full">
+            <SelectTrigger disabled={wait} className="w-full">
               <SelectValue placeholder="Select payment method" />
             </SelectTrigger>
             <SelectContent className="w-full" position={"item-aligned"}>
@@ -340,7 +569,7 @@ const AddTransaction = () => {
               }));
             }}
           >
-            <SelectTrigger className="w-full">
+            <SelectTrigger disabled={wait} className="w-full">
               <SelectValue placeholder="Select payment status" />
             </SelectTrigger>
             <SelectContent className="w-full" position={"item-aligned"}>
@@ -357,6 +586,7 @@ const AddTransaction = () => {
         </div>
 
         <FormFields
+          disabled={wait}
           input={{
             type: "textarea",
             key: "notes",
@@ -370,6 +600,54 @@ const AddTransaction = () => {
           hideLabel
         />
 
+        <Combobox
+          multiple
+          autoHighlight
+          items={tags}
+          onInputValueChange={(search) => {
+            setTagInputValue(search);
+            setTagsSearch(search); // triggers your useContacts search
+          }}
+          disabled={wait}
+        >
+          <ComboboxChips
+            ref={anchor}
+            className="w-full bg-muted border-transparent rounded-lg"
+          >
+            <ComboboxValue>
+              {(values) => (
+                <React.Fragment>
+                  {values.map((value: string) => {
+                    const name = cachedTags.find((f) => f.id === value)?.name;
+                    return (
+                      <ComboboxChip key={value} className="bg-primary">
+                        {name}
+                      </ComboboxChip>
+                    );
+                  })}
+                  <ComboboxChipsInput placeholder="tags here..." />
+                </React.Fragment>
+              )}
+            </ComboboxValue>
+          </ComboboxChips>
+          <ComboboxContent anchor={anchor}>
+            <ComboboxEmpty>No tags found.</ComboboxEmpty>
+            <ComboboxList>
+              {(item: Tag) => (
+                <ComboboxItem
+                  onClick={() =>
+                    handleAddToTags({ id: item.id, name: item.name })
+                  }
+                  key={item.id}
+                  value={item.id}
+                >
+                  {item.name}
+                </ComboboxItem>
+              )}
+            </ComboboxList>
+          </ComboboxContent>
+        </Combobox>
+
         {/* <FormFields input={{
           type: "tags",
           key: "tags",
@@ -378,6 +656,22 @@ const AddTransaction = () => {
           placeholder: "Notes (Comments)",
           rows: 5
         }} setValues={setForm as any} values={form as any} hideLabel /> */}
+
+        <Button
+          onClick={handleAddTransaction}
+          disabled={wait}
+          className="w-full bg-muted"
+        >
+          {wait ? (
+            <>
+              <Spinner /> {waitSate}
+            </>
+          ) : (
+            <>
+              <Plus /> Add Transaction
+            </>
+          )}
+        </Button>
       </RevealGroup>
     </motion.div>
   );

@@ -50,15 +50,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           icon: IconDashboard,
         },
         {
-          title: "Clients",
-          url: "/clients",
+          title: "Contacts",
+          url: "/contacts",
           icon: UsersRound,
         },
-        {
-          title: "Vendors",
-          url: "/vendors",
-          icon: Building2,
-        },
+        // {
+        //   title: "Vendors",
+        //   url: "/vendors",
+        //   icon: Building2,
+        // },
         // {
         //   title: "Projects",
         //   url: "#",

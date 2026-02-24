@@ -17,6 +17,9 @@ export function SiteHeader() {
       "/add-transaction": {
         title: "Enter Transaction",
       },
+      "/contacts": {
+        title: "Contacts",
+      },
     };
   }, []);
 

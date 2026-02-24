@@ -14,6 +14,8 @@ import { useCallback, useEffect, useReducer, useRef } from "react";
 import { PaymentMethod, PaymentStatus } from "./use-payments-helpers";
 import { createClient } from "@/lib/supabase/client";
 
+const supabase = createClient();
+
 interface TransactionsState {
   transactions: Transaction[];
   pagination: PaginationMeta;
@@ -37,7 +39,7 @@ type TransactionsAction =
   | { type: "FETCH_ERROR"; payload: string }
   | { type: "SUMMARY_START" }
   | { type: "SUMMARY_SUCCESS"; payload: TransactionSummary }
-  | { type: "SUMMARY_ERROR"; payload: string }
+  | { type: "SUMMARY_ERROR" }
   | { type: "SET_FILTERS"; payload: TransactionFilters }
   | { type: "SET_PAGE"; payload: number }
   | { type: "SET_LIMIT"; payload: number }
@@ -61,15 +63,6 @@ type TransactionsAction =
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
-
-const DEFAULT_PAGINATION: PaginationMeta = {
-  page: 1,
-  limit: DEFAULT_LIMIT,
-  total: 0,
-  totalPages: 0,
-  hasNextPage: false,
-  hasPrevPage: false,
-};
 
 const DEFAULT_FILTERS: TransactionFilters = {
   sortField: "transaction_date",
@@ -163,7 +156,6 @@ function reducer(
 
     case "CREATE_START":
       return { ...state, creating: true, error: null };
-
     case "CREATE_SUCCESS":
       return {
         ...state,
@@ -171,13 +163,11 @@ function reducer(
         transactions: [action.payload, ...state.transactions],
         pagination: { ...state.pagination, total: state.pagination.total + 1 },
       };
-
     case "CREATE_ERROR":
       return { ...state, creating: false, error: action.payload };
 
     case "UPDATE_START":
       return { ...state, updating: action.payload, error: null };
-
     case "UPDATE_SUCCESS":
       return {
         ...state,
@@ -186,13 +176,11 @@ function reducer(
           t.id === action.payload.id ? action.payload : t,
         ),
       };
-
     case "UPDATE_ERROR":
       return { ...state, updating: null, error: action.payload };
 
     case "DELETE_START":
       return { ...state, deleting: action.payload, error: null };
-
     case "DELETE_SUCCESS":
       return {
         ...state,
@@ -200,13 +188,11 @@ function reducer(
         transactions: state.transactions.filter((t) => t.id !== action.payload),
         pagination: { ...state.pagination, total: state.pagination.total - 1 },
       };
-
     case "DELETE_ERROR":
       return { ...state, deleting: null, error: action.payload };
 
     case "BULK_DELETE_START":
       return { ...state, bulkDeleting: true, error: null };
-
     case "BULK_DELETE_SUCCESS":
       return {
         ...state,
@@ -219,7 +205,6 @@ function reducer(
           total: state.pagination.total - action.payload.length,
         },
       };
-
     case "BULK_DELETE_ERROR":
       return { ...state, bulkDeleting: false, error: action.payload };
 
@@ -239,9 +224,9 @@ interface UseTransactionsOptions {
   filters?: TransactionFilters;
   pagination?: PaginationOptions;
   enabled?: boolean;
-  withContact?: boolean; // join contact data (default: true)
-  withTags?: boolean; // join tag data    (default: true)
-  withSummary?: boolean; // fetch summary totals (default: false)
+  withContact?: boolean;
+  withTags?: boolean;
+  withSummary?: boolean;
 }
 
 export interface UseTransactionsReturn {
@@ -256,8 +241,6 @@ export interface UseTransactionsReturn {
   updating: string | null;
   deleting: string | null;
   bulkDeleting: boolean;
-
-  // filter helpers
   setFilters: (f: TransactionFilters) => void;
   setSearch: (search: string) => void;
   setType: (type: TransactionType | undefined) => void;
@@ -274,8 +257,6 @@ export interface UseTransactionsReturn {
   nextPage: () => void;
   prevPage: () => void;
   resetFilters: () => void;
-
-  // CRUD
   createTransaction: (
     data: TransactionInsert,
     tagIds?: string[],
@@ -289,8 +270,6 @@ export interface UseTransactionsReturn {
   bulkDeleteTransactions: (ids: string[]) => Promise<boolean>;
   markAsPaid: (id: string, paidDate?: string) => Promise<Transaction | null>;
   markAsOverdue: (ids: string[]) => Promise<boolean>;
-
-  // utils
   refetch: () => void;
   refetchSummary: () => void;
   clearError: () => void;
@@ -316,9 +295,12 @@ export function useTransactions(
   const [state, dispatch] = useReducer(reducer, {
     transactions: [],
     pagination: {
-      ...DEFAULT_PAGINATION,
       page: initPagination.page ?? 1,
       limit: Math.min(initPagination.limit ?? DEFAULT_LIMIT, MAX_LIMIT),
+      total: 0,
+      totalPages: 0,
+      hasNextPage: false,
+      hasPrevPage: false,
     },
     filters: { ...DEFAULT_FILTERS, ...initFilters },
     summary: null,
@@ -339,41 +321,57 @@ export function useTransactions(
     };
   }, []);
 
-  // ── Build select string ──────────────────────────────────
+  // ─────────────────────────────────────────────────────────
+  //  FIX: store pagination + filters in refs so fetchTransactions
+  //  never needs them as useCallback deps. The ref always holds
+  //  the latest values without causing a new function reference.
+  // ─────────────────────────────────────────────────────────
+  const paginationRef = useRef(state.pagination);
+  const filtersRef = useRef(state.filters);
+  const withTagsRef = useRef(withTags);
+  const withContactRef = useRef(withContact);
 
-  const buildSelect = useCallback(() => {
+  // keep refs in sync with state on every render (no re-render cost)
+  paginationRef.current = state.pagination;
+  filtersRef.current = state.filters;
+  withTagsRef.current = withTags;
+  withContactRef.current = withContact;
+
+  // ── Build select string ──────────────────────────────────
+  // FIX: not a useCallback — just a plain function called inside
+  // fetchTransactions so it reads from refs and has zero deps.
+  const buildSelect = () => {
     const parts = ["*"];
-    if (withContact) parts.push("contact:contacts(id, name, type, company)");
-    if (withTags)
+    if (withContactRef.current)
+      parts.push("contact:contacts(id, name, type, company)");
+    if (withTagsRef.current)
       parts.push("tags:transaction_tags(tag:tags(id, name, color))");
     return parts.join(", ");
-  }, [withContact, withTags]);
+  };
 
-  // ── Fetch transactions ───────────────────────────────────
-
+  // ── Fetch ────────────────────────────────────────────────
+  // FIX: empty dependency array — function never changes reference.
+  // It reads the latest pagination/filters through refs every call.
   const fetchTransactions = useCallback(async () => {
     if (!enabled) return;
     dispatch({ type: "FETCH_START" });
 
     try {
-      const { page, limit } = state.pagination;
-      const f = state.filters;
+      const { page, limit } = paginationRef.current;
+      const f = filtersRef.current;
       const from = (page - 1) * limit;
       const to = from + limit - 1;
 
-      const supabase = createClient();
       let query = supabase
         .from("transactions")
         .select(buildSelect(), { count: "exact" });
 
-      // ── search ───────────────────────────────────────────
       if (f.search?.trim()) {
         query = query.or(
           `title.ilike.%${f.search}%,description.ilike.%${f.search}%,notes.ilike.%${f.search}%,reference_number.ilike.%${f.search}%`,
         );
       }
 
-      // ── filters ──────────────────────────────────────────
       if (f.type) query = query.eq("type", f.type);
       if (f.payment_status)
         query = query.eq("payment_status", f.payment_status);
@@ -388,12 +386,6 @@ export function useTransactions(
       if (f.amount_min != null) query = query.gte("amount", f.amount_min);
       if (f.amount_max != null) query = query.lte("amount", f.amount_max);
 
-      // ── tag filter (transactions must have ALL provided tags) ─
-      // We filter in JS after fetch since Supabase doesn't support
-      // nested junction table filtering natively
-      // For large datasets consider a DB function / view instead
-
-      // ── sort + range ─────────────────────────────────────
       query = query
         .order(f.sortField ?? "transaction_date", {
           ascending: f.sortOrder !== "desc",
@@ -404,15 +396,14 @@ export function useTransactions(
       if (!mountedRef.current) return;
       if (error) throw error;
 
-      // normalise nested tags from junction table
       let transactions = (data ?? []).map((row: any) => ({
         ...row,
-        tags: withTags
+        tags: withTagsRef.current
           ? (row.tags ?? []).map((t: any) => t.tag).filter(Boolean)
           : undefined,
       })) as Transaction[];
 
-      // client-side tag_ids filter
+      // client-side tag intersection filter
       if (f.tag_ids?.length) {
         transactions = transactions.filter((txn) =>
           f.tag_ids!.every((tid) => txn.tags?.some((t) => t.id === tid)),
@@ -431,20 +422,27 @@ export function useTransactions(
           err instanceof Error ? err.message : "Failed to fetch transactions",
       });
     }
-  }, [enabled, state.pagination, state.filters, buildSelect, withTags]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled]); // FIX: only re-create if enabled changes — refs handle the rest
 
+  // ── Trigger fetch when pagination or filters change ──────
+  // FIX: useEffect watches state directly (not fetchTransactions).
+  // fetchTransactions is stable so this won't loop.
   useEffect(() => {
     fetchTransactions();
-  }, [fetchTransactions]);
+  }, [
+    fetchTransactions,
+    state.pagination.page,
+    state.pagination.limit,
+    state.filters, // object ref changes only on dispatch — safe here
+  ]);
 
-  // ── Fetch summary ────────────────────────────────────────
-
+  // ── Summary ──────────────────────────────────────────────
+  // FIX: stable ref, no state deps
   const fetchSummary = useCallback(async () => {
     if (!withSummary) return;
     dispatch({ type: "SUMMARY_START" });
     try {
-      const supabase = createClient();
-
       const { data, error } = await supabase
         .from("transactions")
         .select("type, payment_status, amount")
@@ -473,9 +471,10 @@ export function useTransactions(
       if (!mountedRef.current) return;
       dispatch({ type: "SUMMARY_SUCCESS", payload: summary });
     } catch {
-      dispatch({ type: "SUMMARY_ERROR", payload: "Failed to fetch summary" });
+      if (!mountedRef.current) return;
+      dispatch({ type: "SUMMARY_ERROR" });
     }
-  }, [withSummary]);
+  }, [withSummary]); // stable — withSummary is a primitive prop
 
   useEffect(() => {
     fetchSummary();
@@ -490,17 +489,13 @@ export function useTransactions(
     ): Promise<Transaction | null> => {
       dispatch({ type: "CREATE_START" });
       try {
-        const supabase = createClient();
-
         const { data: created, error } = await supabase
           .from("transactions")
           .insert(data)
           .select()
           .single();
-
         if (error) throw error;
 
-        // attach tags
         if (tagIds.length) {
           await supabase
             .from("transaction_tags")
@@ -509,18 +504,16 @@ export function useTransactions(
             );
         }
 
-        // re-fetch with joins
         const { data: full, error: fetchErr } = await supabase
           .from("transactions")
           .select(buildSelect())
           .eq("id", created.id)
           .single();
-
         if (fetchErr) throw fetchErr;
 
         const txn: Transaction = {
           ...(full as any),
-          tags: withTags
+          tags: withTagsRef.current
             ? ((full as any).tags ?? []).map((t: any) => t.tag).filter(Boolean)
             : undefined,
         };
@@ -536,8 +529,8 @@ export function useTransactions(
         return null;
       }
     },
-    [buildSelect, withTags],
-  );
+    [],
+  ); // FIX: no deps — reads withTagsRef inside
 
   // ── Update ───────────────────────────────────────────────
 
@@ -545,20 +538,16 @@ export function useTransactions(
     async (
       id: string,
       data: TransactionUpdate,
-      tagIds?: string[], // pass undefined to leave tags unchanged; [] to clear all
+      tagIds?: string[],
     ): Promise<Transaction | null> => {
       dispatch({ type: "UPDATE_START", payload: id });
       try {
-        const supabase = createClient();
-
         const { error } = await supabase
           .from("transactions")
-          .update({ ...data })
+          .update(data)
           .eq("id", id);
-
         if (error) throw error;
 
-        // update tags if provided
         if (tagIds !== undefined) {
           await supabase
             .from("transaction_tags")
@@ -571,18 +560,16 @@ export function useTransactions(
           }
         }
 
-        // re-fetch with joins
         const { data: full, error: fetchErr } = await supabase
           .from("transactions")
           .select(buildSelect())
           .eq("id", id)
           .single();
-
         if (fetchErr) throw fetchErr;
 
         const txn: Transaction = {
           ...(full as any),
-          tags: withTags
+          tags: withTagsRef.current
             ? ((full as any).tags ?? []).map((t: any) => t.tag).filter(Boolean)
             : undefined,
         };
@@ -598,8 +585,8 @@ export function useTransactions(
         return null;
       }
     },
-    [buildSelect, withTags],
-  );
+    [],
+  ); // FIX: no deps — reads withTagsRef inside
 
   // ── Delete ───────────────────────────────────────────────
 
@@ -607,7 +594,6 @@ export function useTransactions(
     async (id: string): Promise<boolean> => {
       dispatch({ type: "DELETE_START", payload: id });
       try {
-        const supabase = createClient();
         const { error } = await supabase
           .from("transactions")
           .delete()
@@ -632,7 +618,6 @@ export function useTransactions(
       if (!ids.length) return true;
       dispatch({ type: "BULK_DELETE_START" });
       try {
-        const supabase = createClient();
         const { error } = await supabase
           .from("transactions")
           .delete()
@@ -643,10 +628,7 @@ export function useTransactions(
       } catch (err: unknown) {
         dispatch({
           type: "BULK_DELETE_ERROR",
-          payload:
-            err instanceof Error
-              ? err.message
-              : "Failed to delete transactions",
+          payload: err instanceof Error ? err.message : "Failed to bulk delete",
         });
         return false;
       }
@@ -673,15 +655,14 @@ export function useTransactions(
     async (ids: string[]): Promise<boolean> => {
       if (!ids.length) return true;
       try {
-        const supabase = createClient();
-
         const { error } = await supabase
           .from("transactions")
           .update({ payment_status: "overdue" })
           .in("id", ids)
-          .eq("payment_status", "pending"); // only update pending ones
+          .eq("payment_status", "pending");
         if (error) throw error;
-        // refetch to reflect changes
+        // FIX: call fetchTransactions directly — it's now stable so
+        // no circular dependency risk
         await fetchTransactions();
         return true;
       } catch {
@@ -691,7 +672,8 @@ export function useTransactions(
     [fetchTransactions],
   );
 
-  // ── Filter helpers ───────────────────────────────────────
+  // ── Filter & pagination helpers ──────────────────────────
+  // All stable — only dispatch, no state reads
 
   const setFilters = useCallback(
     (f: TransactionFilters) => dispatch({ type: "SET_FILTERS", payload: f }),
@@ -759,18 +741,21 @@ export function useTransactions(
     [],
   );
   const nextPage = useCallback(() => {
-    if (state.pagination.hasNextPage)
-      dispatch({ type: "SET_PAGE", payload: state.pagination.page + 1 });
-  }, [state.pagination]);
+    if (paginationRef.current.hasNextPage)
+      dispatch({ type: "SET_PAGE", payload: paginationRef.current.page + 1 });
+  }, []);
   const prevPage = useCallback(() => {
-    if (state.pagination.hasPrevPage)
-      dispatch({ type: "SET_PAGE", payload: state.pagination.page - 1 });
-  }, [state.pagination]);
+    if (paginationRef.current.hasPrevPage)
+      dispatch({ type: "SET_PAGE", payload: paginationRef.current.page - 1 });
+  }, []);
   const resetFilters = useCallback(
     () => dispatch({ type: "SET_FILTERS", payload: DEFAULT_FILTERS }),
     [],
   );
   const clearError = useCallback(() => dispatch({ type: "CLEAR_ERROR" }), []);
+
+  // FIX: reads from state.transactions via closure but getTransactionById
+  // only needs to change when the list changes — acceptable single dep
   const getTransactionById = useCallback(
     (id: string) => state.transactions.find((t) => t.id === id),
     [state.transactions],
@@ -788,7 +773,6 @@ export function useTransactions(
     updating: state.updating,
     deleting: state.deleting,
     bulkDeleting: state.bulkDeleting,
-
     setFilters,
     setSearch,
     setType,
@@ -805,14 +789,12 @@ export function useTransactions(
     nextPage,
     prevPage,
     resetFilters,
-
     createTransaction,
     updateTransaction,
     deleteTransaction,
     bulkDeleteTransactions,
     markAsPaid,
     markAsOverdue,
-
     refetch: fetchTransactions,
     refetchSummary: fetchSummary,
     clearError,

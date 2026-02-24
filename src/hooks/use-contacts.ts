@@ -12,6 +12,8 @@ import {
 } from "@/types/hooks/use-contacts";
 import { useCallback, useEffect, useReducer, useRef } from "react";
 
+const supabase = createClient();
+
 interface ContactsState {
   contacts: Contact[];
   pagination: PaginationMeta;
@@ -281,6 +283,13 @@ export function useContacts(
 
   // track mounted state to avoid state updates on unmounted component
   const mountedRef = useRef(true);
+  const paginationRef = useRef(state.pagination);
+  const filtersRef = useRef(state.filters);
+
+  // keep refs in sync on every render — no re-render cost
+  paginationRef.current = state.pagination;
+  filtersRef.current = state.filters;
+
   useEffect(() => {
     mountedRef.current = true;
     return () => {
@@ -289,6 +298,8 @@ export function useContacts(
   }, []);
 
   // ── Fetch ────────────────────────────────────────────────
+  // FIX: reads pagination/filters via refs so dep array stays
+  // [enabled] — no new function ref on every filter/page change.
 
   const fetchContacts = useCallback(async () => {
     if (!enabled) return;
@@ -296,13 +307,13 @@ export function useContacts(
     dispatch({ type: "FETCH_START" });
 
     try {
-      const { page, limit } = state.pagination;
+      const { page, limit } = paginationRef.current;
       const { search, type, category, is_active, sortField, sortOrder } =
-        state.filters;
+        filtersRef.current;
 
       const from = (page - 1) * limit;
       const to = from + limit - 1;
-      const supabase = createClient();
+
       let query = supabase.from("contacts").select("*", { count: "exact" });
 
       // ── filters ─────────────────────────────────────────
@@ -341,12 +352,17 @@ export function useContacts(
         err instanceof Error ? err.message : "Failed to fetch contacts";
       dispatch({ type: "FETCH_ERROR", payload: message });
     }
-  }, [enabled, state.pagination, state.filters]);
+  }, [enabled]); // stable — refs handle the changing values
 
-  // auto-fetch on filters/page/limit change
+  // FIX: watch specific values instead of fetchContacts to avoid loop
   useEffect(() => {
     fetchContacts();
-  }, [fetchContacts]);
+  }, [
+    fetchContacts,
+    state.pagination.page,
+    state.pagination.limit,
+    state.filters,
+  ]);
 
   // ── Create ───────────────────────────────────────────────
 
@@ -354,7 +370,6 @@ export function useContacts(
     async (data: ContactInsert): Promise<Contact | null> => {
       dispatch({ type: "CREATE_START" });
       try {
-        const supabase = createClient();
         const { data: created, error } = await supabase
           .from("contacts")
           .insert(data)
@@ -381,7 +396,6 @@ export function useContacts(
     async (id: string, data: ContactUpdate): Promise<Contact | null> => {
       dispatch({ type: "UPDATE_START", payload: id });
       try {
-        const supabase = createClient();
         const { data: updated, error } = await supabase
           .from("contacts")
           .update(data)
@@ -408,7 +422,6 @@ export function useContacts(
   const deleteContact = useCallback(async (id: string): Promise<boolean> => {
     dispatch({ type: "DELETE_START", payload: id });
     try {
-      const supabase = createClient();
       const { error } = await supabase.from("contacts").delete().eq("id", id);
 
       if (error) throw error;
@@ -430,7 +443,6 @@ export function useContacts(
       if (ids.length === 0) return true;
       dispatch({ type: "BULK_DELETE_START" });
       try {
-        const supabase = createClient();
         const { error } = await supabase
           .from("contacts")
           .delete()
@@ -452,13 +464,21 @@ export function useContacts(
 
   // ── Toggle Active ────────────────────────────────────────
 
+  const getContactById = useCallback(
+    (id: string): Contact | undefined => {
+      return state.contacts.find((c) => c.id === id);
+    },
+    [state.contacts],
+  );
+
   const toggleActive = useCallback(
     async (id: string): Promise<Contact | null> => {
-      const contact = state.contacts.find((c) => c.id === id);
+      // FIX: use getContactById which already tracks state.contacts
+      const contact = getContactById(id);
       if (!contact) return null;
       return updateContact(id, { is_active: !contact.is_active });
     },
-    [state.contacts, updateContact],
+    [getContactById, updateContact],
   );
 
   // ── Filter & Pagination Helpers ──────────────────────────
@@ -517,13 +537,6 @@ export function useContacts(
   const clearError = useCallback(() => {
     dispatch({ type: "CLEAR_ERROR" });
   }, []);
-
-  const getContactById = useCallback(
-    (id: string): Contact | undefined => {
-      return state.contacts.find((c) => c.id === id);
-    },
-    [state.contacts],
-  );
 
   // ── Return ───────────────────────────────────────────────
 

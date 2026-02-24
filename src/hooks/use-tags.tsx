@@ -10,6 +10,9 @@ import {
   TagUpdate,
 } from "../types/hooks/use-tags";
 import { createClient } from "@/lib/supabase/client";
+
+const supabase = createClient();
+
 interface TagsState {
   tags: Tag[];
   pagination: PaginationMeta;
@@ -42,6 +45,10 @@ type TagsAction =
   | { type: "BULK_DELETE_SUCCESS"; payload: string[] }
   | { type: "BULK_DELETE_ERROR"; payload: string }
   | { type: "CLEAR_ERROR" };
+
+// ============================================================
+//  CONSTANTS
+// ============================================================
 
 const DEFAULT_LIMIT = 50; // tags lists are usually shown all at once
 const MAX_LIMIT = 200;
@@ -251,6 +258,13 @@ export function useTags(options: UseTagsOptions = {}): UseTagsReturn {
   });
 
   const mountedRef = useRef(true);
+  const paginationRef = useRef(state.pagination);
+  const filtersRef = useRef(state.filters);
+
+  // keep refs in sync on every render — no re-render cost
+  paginationRef.current = state.pagination;
+  filtersRef.current = state.filters;
+
   useEffect(() => {
     mountedRef.current = true;
     return () => {
@@ -259,16 +273,19 @@ export function useTags(options: UseTagsOptions = {}): UseTagsReturn {
   }, []);
 
   // ── Fetch ────────────────────────────────────────────────
+  // FIX: reads pagination/filters via refs so dependency array
+  // stays [enabled] — function never gets a new reference on
+  // filter/page changes, breaking the infinite re-render loop.
 
   const fetchTags = useCallback(async () => {
     if (!enabled) return;
     dispatch({ type: "FETCH_START" });
     try {
-      const { page, limit } = state.pagination;
-      const { search, sortField, sortOrder } = state.filters;
+      const { page, limit } = paginationRef.current;
+      const { search, sortField, sortOrder } = filtersRef.current;
       const from = (page - 1) * limit;
       const to = from + limit - 1;
-      const supabase = createClient();
+
       let query = supabase.from("tags").select("*", { count: "exact" });
 
       if (search?.trim()) {
@@ -293,11 +310,13 @@ export function useTags(options: UseTagsOptions = {}): UseTagsReturn {
         payload: err instanceof Error ? err.message : "Failed to fetch tags",
       });
     }
-  }, [enabled, state.pagination, state.filters]);
+  }, [enabled]); // stable — refs handle the changing values
 
+  // FIX: watch specific primitive/object values instead of fetchTransactions
+  // fetchTags is now stable so this won't create a loop
   useEffect(() => {
     fetchTags();
-  }, [fetchTags]);
+  }, [fetchTags, state.pagination.page, state.pagination.limit, state.filters]);
 
   // ── CRUD ─────────────────────────────────────────────────
 
@@ -305,7 +324,6 @@ export function useTags(options: UseTagsOptions = {}): UseTagsReturn {
     async (data: TagInsert): Promise<Tag | null> => {
       dispatch({ type: "CREATE_START" });
       try {
-        const supabase = createClient();
         const { data: created, error } = await supabase
           .from("tags")
           .insert(data)
@@ -329,8 +347,6 @@ export function useTags(options: UseTagsOptions = {}): UseTagsReturn {
     async (id: string, data: TagUpdate): Promise<Tag | null> => {
       dispatch({ type: "UPDATE_START", payload: id });
       try {
-        const supabase = createClient();
-
         const { data: updated, error } = await supabase
           .from("tags")
           .update(data)
@@ -354,8 +370,6 @@ export function useTags(options: UseTagsOptions = {}): UseTagsReturn {
   const deleteTag = useCallback(async (id: string): Promise<boolean> => {
     dispatch({ type: "DELETE_START", payload: id });
     try {
-      const supabase = createClient();
-
       const { error } = await supabase.from("tags").delete().eq("id", id);
       if (error) throw error;
       dispatch({ type: "DELETE_SUCCESS", payload: id });
@@ -374,8 +388,6 @@ export function useTags(options: UseTagsOptions = {}): UseTagsReturn {
       if (!ids.length) return true;
       dispatch({ type: "BULK_DELETE_START" });
       try {
-        const supabase = createClient();
-
         const { error } = await supabase.from("tags").delete().in("id", ids);
         if (error) throw error;
         dispatch({ type: "BULK_DELETE_SUCCESS", payload: ids });
@@ -414,14 +426,15 @@ export function useTags(options: UseTagsOptions = {}): UseTagsReturn {
     (limit: number) => dispatch({ type: "SET_LIMIT", payload: limit }),
     [],
   );
+  // FIX: read from ref so these have no state deps and stay stable
   const nextPage = useCallback(() => {
-    if (state.pagination.hasNextPage)
-      dispatch({ type: "SET_PAGE", payload: state.pagination.page + 1 });
-  }, [state.pagination]);
+    if (paginationRef.current.hasNextPage)
+      dispatch({ type: "SET_PAGE", payload: paginationRef.current.page + 1 });
+  }, []);
   const prevPage = useCallback(() => {
-    if (state.pagination.hasPrevPage)
-      dispatch({ type: "SET_PAGE", payload: state.pagination.page - 1 });
-  }, [state.pagination]);
+    if (paginationRef.current.hasPrevPage)
+      dispatch({ type: "SET_PAGE", payload: paginationRef.current.page - 1 });
+  }, []);
   const resetFilters = useCallback(
     () => dispatch({ type: "SET_FILTERS", payload: DEFAULT_FILTERS }),
     [],
