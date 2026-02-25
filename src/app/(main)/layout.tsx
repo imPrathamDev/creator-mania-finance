@@ -7,6 +7,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { SiteHeader } from "@/components/site-header";
 import SmartSearch from "@/components/custom/SmartSearch";
 import { GeneralProvider } from "@/context/genral-context";
+import { NuqsAdapter } from "nuqs/adapters/next/app";
 
 const sans = Inter({
   variable: "--font-inter-sans",
@@ -33,24 +34,26 @@ export default function MainLayout({
       <body
         className={`${sans.variable} ${mono.variable} antialiased font-sans`}
       >
-        <GeneralProvider>
-          <SidebarProvider
-            style={
-              {
-                "--sidebar-width": "calc(var(--spacing) * 72)",
-                "--header-height": "calc(var(--spacing) * 12)",
-              } as React.CSSProperties
-            }
-          >
-            <AppSidebar variant="inset" />
-            <SidebarInset>
-              <SiteHeader />
-              <div className="flex-1">{children}</div>
-            </SidebarInset>
-            <SmartSearch />
-          </SidebarProvider>
-        </GeneralProvider>
-        <GoeyToaster theme="dark" position="top-center" />
+        <NuqsAdapter>
+          <GeneralProvider>
+            <SidebarProvider
+              style={
+                {
+                  "--sidebar-width": "calc(var(--spacing) * 72)",
+                  "--header-height": "calc(var(--spacing) * 12)",
+                } as React.CSSProperties
+              }
+            >
+              <AppSidebar variant="inset" />
+              <SidebarInset>
+                <SiteHeader />
+                <div className="flex-1">{children}</div>
+              </SidebarInset>
+              <SmartSearch />
+            </SidebarProvider>
+          </GeneralProvider>
+          <GoeyToaster theme="dark" position="top-center" />
+        </NuqsAdapter>
       </body>
     </html>
   );

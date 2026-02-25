@@ -5,10 +5,14 @@ import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { usePathname } from "next/navigation";
 import { useMemo } from "react";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "./ui/input-group";
+import { Search, SearchIcon } from "lucide-react";
+import { Kbd } from "./ui/kbd";
+import { useGeneralStore } from "@/context/genral-context";
 
 export function SiteHeader() {
+  const { setOpenSmartSearch } = useGeneralStore();
   const pathname = usePathname();
-
   const links = useMemo(() => {
     return {
       "/": {
@@ -54,6 +58,18 @@ export function SiteHeader() {
               GitHub
             </a>
           </Button> */}
+          <InputGroup className="max-w-sm bg-muted border-transparent rounded-xl">
+            <InputGroupInput
+              placeholder="Search..."
+              onClick={() => setOpenSmartSearch(true)}
+            />
+            <InputGroupAddon>
+              <SearchIcon className="text-muted-foreground" />
+            </InputGroupAddon>
+            <InputGroupAddon align="inline-end">
+              <Kbd>⌘K</Kbd>
+            </InputGroupAddon>
+          </InputGroup>
         </div>
       </div>
     </header>

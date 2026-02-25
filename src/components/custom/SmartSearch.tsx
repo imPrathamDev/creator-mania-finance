@@ -62,6 +62,8 @@ function SmartSearch() {
         <CommandList className="no-scrollbar">
           {loading ? (
             <CommandEmpty>Please wait...</CommandEmpty>
+          ) : !(query.length > 0) ? (
+            <CommandEmpty>Search anything.</CommandEmpty>
           ) : (
             <CommandEmpty>No results found.</CommandEmpty>
           )}
@@ -153,8 +155,24 @@ function SmartSearch() {
                       }
                     }}
                   >
-                    <PlusIcon />
-                    <span>{tag.title}</span>
+                    <TrendingDown
+                      style={{
+                        ...(tag.color &&
+                          tag.color.length > 0 && {
+                            color: tag.color,
+                          }),
+                      }}
+                    />
+                    <span
+                      style={{
+                        ...(tag.color &&
+                          tag.color.length > 0 && {
+                            color: tag.color,
+                          }),
+                      }}
+                    >
+                      {tag.title}
+                    </span>
                     <CommandShortcut>
                       <ArrowUpRight className="size-5" />
                     </CommandShortcut>
