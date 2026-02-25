@@ -4,8 +4,10 @@ import {
   BanknoteArrowDown,
   BanknoteArrowUp,
   CalendarClock,
+  Dot,
   InfoIcon,
   Plus,
+  PlusIcon,
   X,
 } from "lucide-react";
 import React, {
@@ -13,6 +15,7 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { AnimatePresence, motion } from "motion/react";
@@ -60,6 +63,15 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 
 // ── Reusable reveal wrapper ──────────────────────────────────────────────────
 
@@ -178,6 +190,21 @@ const TypeSelector = ({
   </motion.div>
 );
 
+const tagsColors = [
+  "#8ECAE6",
+  "#B7E4C7",
+  "#E5989B",
+  "#B1A7A6",
+  "#E9C46A",
+  "#93A8AC",
+  "#A8DADC",
+  "#F4A261",
+  "#BC4B51",
+  "#8D99AE",
+];
+
+type TagItem = { id: string; name: string; color?: string; creatable?: string };
+
 // ── Main component ───────────────────────────────────────────────────────────
 
 const AddTransaction = () => {
@@ -195,8 +222,9 @@ const AddTransaction = () => {
     payment_method: PaymentMethod;
     payment_status: PaymentStatus;
     notes: string;
-    tags: ({ id: string; name: string } | string)[];
-    amount: number | undefined;
+    tags: { id: string; name: string }[];
+    tagsToCreate: { name: string; color: string }[];
+    amount?: number;
     reminder_message?: string;
     reminder_date?: Date;
   }>({
@@ -207,44 +235,198 @@ const AddTransaction = () => {
     payment_status: "paid",
     notes: "",
     tags: [],
-    amount: undefined,
+    tagsToCreate: [],
   });
   const { contacts, setSearch } = useContacts();
   const [open, setOpen] = useState(false);
   const [inputValue, setInputValue] = useState<string>("");
   const [tagInputValue, setTagInputValue] = useState<string>("");
+  const { tags, setSearch: setTagsSearch } = useTags();
+  const [openDialog, setOpenDialog] = useState(false);
+  const [pendingTagName, setPendingTagName] = useState("");
   const { paymentMethods } = usePaymentMethods();
   const { paymentStatuses } = usePaymentStatuses();
   const anchor = useComboboxAnchor();
-  const { tags, setSearch: setTagsSearch } = useTags();
+  const [createTagForm, setCreateTagForm] = useState<{
+    name: string;
+    color?: string;
+  }>({
+    name: "",
+  });
+  const highlightedItemRef = useRef<TagItem | undefined>(undefined);
   const [wait, setWait] = useState(false);
   const [waitSate, setWaitState] = useState("Please wait...");
   const [cachedTags, setCacheTags] = useState<Tag[]>([]);
 
   const handleLabel = useCallback(
     (contact: string) => {
-      console.log(contact);
-
       const name = contacts.find((f) => f.id === contact)?.name;
       return name ?? "";
     },
     [contacts],
   );
 
-  const handleAddToTags = useCallback(
-    ({ id, name }: { id: string; name: string }) => {
-      setForm((prev) => ({
-        ...prev,
-        tags: [
-          ...prev.tags,
-          ...(prev.tags.some((s) => typeof s !== "string" && s.id !== id)
-            ? [{ id, name }]
-            : []),
-        ],
-      }));
-    },
-    [],
+  const selectedTags = useMemo(
+    (): TagItem[] => [
+      ...form.tags,
+      ...form.tagsToCreate.map((t) => ({
+        id: `pending:${t.name}`,
+        name: t.name,
+        color: t.color,
+      })),
+    ],
+    [form.tags, form.tagsToCreate],
   );
+
+  // Inject creatable sentinel when no exact match
+  const trimmed = tagInputValue.trim();
+  const lowered = trimmed.toLocaleLowerCase();
+  const allKnownNames = [
+    ...tags.map((t) => t.name.toLocaleLowerCase()),
+    ...form.tagsToCreate.map((t) => t.name.toLocaleLowerCase()),
+  ];
+  const exactExists = allKnownNames.includes(lowered);
+
+  const itemsForView: any[] =
+    trimmed !== "" && !exactExists
+      ? [
+          ...tags,
+          ...form.tagsToCreate.map((t) => ({
+            id: `pending:${t.name}`,
+            name: t.name,
+            color: t.color,
+          })),
+          {
+            id: `create:${lowered}`,
+            name: `Create "${trimmed}"`,
+            creatable: trimmed,
+          },
+        ]
+      : [
+          ...tags,
+          ...form.tagsToCreate.map((t) => ({
+            id: `pending:${t.name}`,
+            name: t.name,
+            color: t.color,
+          })),
+        ];
+
+  function handleTagValueChange(next: TagItem[]) {
+    const creatableItem = next.find(
+      (item) => item.creatable && !selectedTags.some((s) => s.id === item.id),
+    );
+
+    if (creatableItem?.creatable) {
+      setPendingTagName(creatableItem.creatable);
+      setOpenDialog(true);
+      return;
+    }
+
+    const clean = next.filter((i) => !i.creatable);
+
+    // Deduplicate by id — last occurrence wins (handles toggle-off too)
+    const deduped = clean.filter(
+      (item, index, arr) => arr.findIndex((t) => t.id === item.id) === index,
+    );
+
+    const existingTags = deduped
+      .filter((t) => !t.id.startsWith("pending:"))
+      .map(({ id, name, color }) => ({ id, name, color }));
+
+    const pendingTags = deduped
+      .filter((t) => t.id.startsWith("pending:"))
+      .map((t) => ({
+        name: t.name,
+        color:
+          t.color ??
+          form.tagsToCreate.find((p) => p.name === t.name)?.color ??
+          "#000000",
+      }));
+
+    setForm((prev) => ({
+      ...prev,
+      tags: existingTags as { id: string; name: string }[],
+      tagsToCreate: pendingTags,
+    }));
+    setTagInputValue("");
+  }
+
+  function handleInputKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key !== "Enter" || highlightedItemRef.current) return;
+
+    const currentTrimmed = tagInputValue.trim();
+    if (!currentTrimmed) return;
+
+    const normalized = currentTrimmed.toLocaleLowerCase();
+    const existing = tags.find(
+      (t) => t.name.toLocaleLowerCase() === normalized,
+    );
+
+    if (existing) {
+      if (!form.tags.some((t) => t.id === existing.id)) {
+        setForm((prev) => ({
+          ...prev,
+          tags: [...prev.tags, { id: existing.id, name: existing.name }],
+        }));
+      }
+      setTagInputValue("");
+      return;
+    }
+
+    // Check if already in tagsToCreate
+    const alreadyPending = form.tagsToCreate.some(
+      (t) => t.name.toLocaleLowerCase() === normalized,
+    );
+    if (alreadyPending) {
+      setTagInputValue("");
+      return;
+    }
+
+    setPendingTagName(currentTrimmed);
+    setCreateTagForm((prev) => ({ ...prev, name: currentTrimmed }));
+    setOpenDialog(true);
+  }
+
+  function handleConfirmCreate() {
+    const name = createTagForm.name.trim() ?? pendingTagName.trim();
+    const color = createTagForm.color ?? "#3b82f6";
+    if (!name) return;
+    const normalized = name.toLocaleLowerCase();
+
+    const existing = tags.find(
+      (t) => t.name.toLocaleLowerCase() === normalized,
+    );
+    if (existing) {
+      if (!form.tags.some((t) => t.id === existing.id)) {
+        setForm((prev) => ({
+          ...prev,
+          tags: [...prev.tags, { id: existing.id, name: existing.name }],
+        }));
+      }
+      setOpenDialog(false);
+      setTagInputValue("");
+      return;
+    }
+
+    // Prevent duplicate pending tag
+    const alreadyPending = form.tagsToCreate.some(
+      (t) => t.name.toLocaleLowerCase() === normalized,
+    );
+    if (alreadyPending) {
+      setOpenDialog(false);
+      setTagInputValue("");
+      return;
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      tagsToCreate: [...prev.tagsToCreate, { name, color }],
+    }));
+
+    setOpenDialog(false);
+    setTagInputValue("");
+    setCreateTagForm({ name: "" });
+  }
 
   useEffect(() => {
     if (tags.length > 0) {
@@ -269,22 +451,12 @@ const AddTransaction = () => {
     }
     try {
       setWait(true);
-      const unlinkedTags = form.tags.filter((f) => typeof f === "string");
-      const linkedTags = form.tags.filter((f) => typeof f !== "string");
+      // const unlinkedTags = form.tags.filter((f) => typeof f === "string");
+      // const linkedTags = form.tags.filter((f) => typeof f !== "string");
+      console.log(form.tags, form.tagsToCreate);
+
       const supabase = createClient();
       let c: string;
-      const tagsColors = [
-        "#8ECAE6",
-        "#B7E4C7",
-        "#E5989B",
-        "#B1A7A6",
-        "#E9C46A",
-        "#93A8AC",
-        "#A8DADC",
-        "#F4A261",
-        "#BC4B51",
-        "#8D99AE",
-      ];
       setWaitState("Linking contact...");
       if (typeof form.contact === "string") {
         const { data: contactData, error: errContact } = await supabase
@@ -319,6 +491,9 @@ const AddTransaction = () => {
           payment_method: form.payment_method,
           payment_status: form.payment_status,
           notes: form.notes,
+          ...(form.reminder_date && {
+            due_date: form.reminder_date.toISOString(),
+          }),
         })
         .select("*")
         .single();
@@ -330,19 +505,21 @@ const AddTransaction = () => {
       }
       setWaitState("Linking tags...");
       const newTags = await Promise.all(
-        unlinkedTags.map((t) =>
+        form.tagsToCreate.map((t) =>
           supabase
             .from("tags")
             .insert({
-              name: t,
-              color: tagsColors[Math.floor(Math.random() * tagsColors.length)],
+              name: t.name,
+              color:
+                t.color ??
+                tagsColors[Math.floor(Math.random() * tagsColors.length)],
             })
             .select("*")
             .single(),
         ),
       );
 
-      await Promise.all([
+      const _d = await Promise.all([
         ...newTags
           .filter((f) => f.error === null)
           .map((g) =>
@@ -351,13 +528,15 @@ const AddTransaction = () => {
               transaction_id: tnx.id,
             }),
           ),
-        ...linkedTags.map((g) =>
+        ...form.tags.map((g) =>
           supabase.from("transaction_tags").insert({
             tag_id: g.id,
             transaction_id: tnx.id,
           }),
         ),
       ]);
+
+      console.log(_d);
 
       if (
         (form.payment_status === "partially_paid" ||
@@ -376,7 +555,6 @@ const AddTransaction = () => {
       }
 
       setForm({
-        amount: undefined,
         date: new Date(),
         description: "",
         notes: "",
@@ -384,7 +562,7 @@ const AddTransaction = () => {
         payment_status: "paid",
         tags: [],
         title: "",
-        contact: undefined,
+        tagsToCreate: [],
       });
       setWait(false);
       setWaitState("Please wait...");
@@ -400,6 +578,10 @@ const AddTransaction = () => {
       return;
     }
   }, [form, type]);
+
+  useEffect(() => {
+    console.log("Tags", form.tags);
+  }, [form.tags]);
 
   return (
     <motion.div
@@ -636,10 +818,18 @@ const AddTransaction = () => {
         <Combobox
           multiple
           autoHighlight
-          items={tags}
+          items={itemsForView}
+          itemToStringLabel={(item: TagItem) => item.name}
+          filter={null} // disable built-in filter since you handle it via setTagsSearch
+          value={selectedTags}
+          onValueChange={handleTagValueChange}
+          inputValue={tagInputValue}
           onInputValueChange={(search) => {
             setTagInputValue(search);
-            setTagsSearch(search); // triggers your useContacts search
+            setTagsSearch(search);
+          }}
+          onItemHighlighted={(item) => {
+            highlightedItemRef.current = item;
           }}
           disabled={wait}
         >
@@ -648,47 +838,40 @@ const AddTransaction = () => {
             className="w-full bg-muted border-transparent rounded-lg"
           >
             <ComboboxValue>
-              {(values) => (
+              {(values: TagItem[]) => (
                 <React.Fragment>
-                  {values.map((value: string) => {
-                    const name = cachedTags.find((f) => f.id === value)?.name;
-                    return (
-                      <ComboboxChip key={value} className="bg-primary">
-                        {name}
-                      </ComboboxChip>
-                    );
-                  })}
-                  <ComboboxChipsInput placeholder="tags here..." />
+                  {values.map((tag) => (
+                    <ComboboxChip key={tag.id} className="bg-primary">
+                      {tag.name}
+                    </ComboboxChip>
+                  ))}
+                  <ComboboxChipsInput
+                    placeholder="tags here..."
+                    onKeyDown={handleInputKeyDown}
+                  />
                 </React.Fragment>
               )}
             </ComboboxValue>
           </ComboboxChips>
+
           <ComboboxContent anchor={anchor}>
             <ComboboxEmpty>No tags found.</ComboboxEmpty>
             <ComboboxList>
-              {(item: Tag) => (
-                <ComboboxItem
-                  onClick={() =>
-                    handleAddToTags({ id: item.id, name: item.name })
-                  }
-                  key={item.id}
-                  value={item.id}
-                >
-                  {item.name}
-                </ComboboxItem>
-              )}
+              {(item: TagItem) =>
+                item.creatable ? (
+                  <ComboboxItem key={item.id} value={item}>
+                    <PlusIcon className="mr-2 h-4 w-4" />
+                    Create "{item.creatable}"
+                  </ComboboxItem>
+                ) : (
+                  <ComboboxItem key={item.id} value={item}>
+                    {item.name}
+                  </ComboboxItem>
+                )
+              }
             </ComboboxList>
           </ComboboxContent>
         </Combobox>
-
-        {/* <FormFields input={{
-          type: "tags",
-          key: "tags",
-          name: "tags",
-          title: "Notes",
-          placeholder: "Notes (Comments)",
-          rows: 5
-        }} setValues={setForm as any} values={form as any} hideLabel /> */}
 
         {form.payment_status === "partially_paid" ||
           (form.payment_status === "pending" && (
@@ -752,11 +935,74 @@ const AddTransaction = () => {
             </>
           ) : (
             <>
-              <Plus /> Add Transaction
+              <Plus /> Add {type === "expense" ? "Expense" : "Income"}
             </>
           )}
         </Button>
       </RevealGroup>
+
+      <Dialog open={openDialog} onOpenChange={setOpenDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create new tag</DialogTitle>
+            <DialogDescription>Add a new tag to select.</DialogDescription>
+          </DialogHeader>
+          <Input
+            value={createTagForm.name}
+            onChange={(e) =>
+              setCreateTagForm((prev) => ({ ...prev, name: e.target.value }))
+            }
+            placeholder="Tag name"
+            defaultValue={pendingTagName}
+            className="my-4"
+            autoFocus
+          />
+          <Select
+            defaultValue={tagsColors[0]}
+            onValueChange={(value) =>
+              setCreateTagForm((prev) => ({
+                ...prev,
+                color: value,
+              }))
+            }
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select color" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {tagsColors.map((tc) => (
+                  <SelectItem
+                    key={tc}
+                    value={tc}
+                    style={{
+                      color: tc,
+                    }}
+                  >
+                    <Dot
+                      style={{
+                        color: tc,
+                      }}
+                      className="size-7"
+                    />{" "}
+                    {tc}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              type="button"
+              onClick={() => setOpenDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmCreate}>Create</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 };

@@ -20,6 +20,9 @@ export function SiteHeader() {
       "/contacts": {
         title: "Contacts",
       },
+      "/transactions": {
+        title: "All Transactions",
+      },
     };
   }, []);
 
