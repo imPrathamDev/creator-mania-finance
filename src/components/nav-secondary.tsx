@@ -19,7 +19,8 @@ export function NavSecondary({
 }: {
   items: {
     title: string;
-    url: string;
+    url: string | null;
+    onClick?: () => void;
     icon:
       | Icon
       | React.ForwardRefExoticComponent<
@@ -33,12 +34,27 @@ export function NavSecondary({
         <SidebarMenu>
           {items.map((item) => (
             <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton asChild>
-                <Link href={item.url}>
-                  <item.icon />
-                  <span>{item.title}</span>
-                </Link>
-              </SidebarMenuButton>
+              {item.url !== null && (
+                <SidebarMenuButton asChild>
+                  <Link href={item.url}>
+                    <item.icon />
+                    <span>{item.title}</span>
+                  </Link>
+                </SidebarMenuButton>
+              )}
+
+              {item.onClick && (
+                <SidebarMenuButton
+                  asChild
+                  onClick={item.onClick}
+                  className="cursor-pointer"
+                >
+                  <div>
+                    <item.icon />
+                    <span>{item.title}</span>
+                  </div>
+                </SidebarMenuButton>
+              )}
             </SidebarMenuItem>
           ))}
         </SidebarMenu>

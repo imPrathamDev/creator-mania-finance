@@ -96,6 +96,7 @@ import {
   type PaymentStatus,
   type PaymentMethod,
 } from "@/hooks/use-payments-helpers";
+import { useQueryState } from "nuqs";
 
 // ============================================================
 //  HELPERS
@@ -568,11 +569,21 @@ export function TransactionsTable({
   const { tags } = useTags({ pagination: { limit: 200 } });
 
   // ── local filter state ────────────────────────────────────
-  const [localSearch, setLocalSearch] = React.useState("");
-  const [typeFilter, setTypeFilter] = React.useState("all");
-  const [statusFilter, setStatusFilter] = React.useState("all");
-  const [methodFilter, setMethodFilter] = React.useState("all");
-  const [tagFilter, setTagFilter] = React.useState("all");
+  const [localSearch, setLocalSearch] = useQueryState("localSearch", {
+    defaultValue: "",
+  });
+  const [typeFilter, setTypeFilter] = useQueryState("typeFilter", {
+    defaultValue: "all",
+  });
+  const [statusFilter, setStatusFilter] = useQueryState("statusFilter", {
+    defaultValue: "all",
+  });
+  const [methodFilter, setMethodFilter] = useQueryState("methodFilter", {
+    defaultValue: "all",
+  });
+  const [tagFilter, setTagFilter] = useQueryState("tag", {
+    defaultValue: "all",
+  });
 
   // ── debounced search ──────────────────────────────────────
   React.useEffect(() => {

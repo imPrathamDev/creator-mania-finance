@@ -39,8 +39,10 @@ import {
   UsersRound,
 } from "lucide-react";
 import Link from "next/link";
+import { useGeneralStore } from "@/context/genral-context";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const { setOpenSmartSearch } = useGeneralStore();
   const data = React.useMemo(() => {
     return {
       navMain: [
@@ -54,16 +56,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           url: "/contacts",
           icon: UsersRound,
         },
-        // {
-        //   title: "Vendors",
-        //   url: "/vendors",
-        //   icon: Building2,
-        // },
-        // {
-        //   title: "Projects",
-        //   url: "#",
-        //   icon: IconFolder,
-        // },
       ],
       navSecondary: [
         {
@@ -78,7 +70,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         },
         {
           title: "Smart Search",
-          url: "/search",
+          url: null,
+          onClick: () => setOpenSmartSearch(true),
           icon: IconSearch,
         },
       ],
@@ -100,7 +93,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         },
       ],
     };
-  }, []);
+  }, [setOpenSmartSearch]);
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>

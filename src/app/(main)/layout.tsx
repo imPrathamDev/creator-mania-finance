@@ -5,6 +5,8 @@ import { GoeyToaster } from "@/components/ui/goey-toaster";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SiteHeader } from "@/components/site-header";
+import SmartSearch from "@/components/custom/SmartSearch";
+import { GeneralProvider } from "@/context/genral-context";
 
 const sans = Inter({
   variable: "--font-inter-sans",
@@ -31,20 +33,23 @@ export default function MainLayout({
       <body
         className={`${sans.variable} ${mono.variable} antialiased font-sans`}
       >
-        <SidebarProvider
-          style={
-            {
-              "--sidebar-width": "calc(var(--spacing) * 72)",
-              "--header-height": "calc(var(--spacing) * 12)",
-            } as React.CSSProperties
-          }
-        >
-          <AppSidebar variant="inset" />
-          <SidebarInset>
-            <SiteHeader />
-            <div className="flex-1">{children}</div>
-          </SidebarInset>
-        </SidebarProvider>
+        <GeneralProvider>
+          <SidebarProvider
+            style={
+              {
+                "--sidebar-width": "calc(var(--spacing) * 72)",
+                "--header-height": "calc(var(--spacing) * 12)",
+              } as React.CSSProperties
+            }
+          >
+            <AppSidebar variant="inset" />
+            <SidebarInset>
+              <SiteHeader />
+              <div className="flex-1">{children}</div>
+            </SidebarInset>
+            <SmartSearch />
+          </SidebarProvider>
+        </GeneralProvider>
         <GoeyToaster theme="dark" position="top-center" />
       </body>
     </html>
