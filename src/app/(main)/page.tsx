@@ -5,7 +5,7 @@ import { DataTable } from "@/components/data-table";
 import { SectionCards } from "@/components/section-cards";
 
 import data from "../data.json";
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import {
   DashboardAnalytics,
   getDashboardAnalytics,
@@ -184,7 +184,9 @@ export default function Home() {
         </div>
         <div className="px-4 lg:px-6 grid gap-4">
           <h3 className="text-2xl font-medium">Transactions</h3>
-          <TransactionsTable />
+          <Suspense>
+            <TransactionsTable />
+          </Suspense>
         </div>
       </div>
     </div>
