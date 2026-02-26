@@ -1,6 +1,7 @@
 import { createClient } from "./supabase/client";
 
 const supabase = createClient();
+
 // ============================================================
 //  SHARED TYPES
 // ============================================================
@@ -106,16 +107,25 @@ export interface CashFlowPoint {
 
 export interface PaymentMethodStat {
     method: string;
-    count: number;
-    amount: number;
-    pct: number;
+    income: number;
+    expense: number;
+    net: number;
+    income_count: number;
+    expense_count: number;
+    total_count: number;
+    pct_income: number; // % of total income amount
+    pct_expense: number; // % of total expense amount
 }
 
 export interface DayOfWeekStat {
     day: number; // 0 = Sun … 6 = Sat
     label: string;
-    count: number;
-    amount: number;
+    income: number;
+    expense: number;
+    net: number;
+    income_count: number;
+    expense_count: number;
+    total_count: number;
 }
 
 export interface HeatmapPoint {
@@ -735,34 +745,66 @@ export async function getPaymentMethodStats(
 
     const { data, error } = await supabase
         .from("transactions")
-        .select("payment_method, amount")
+        .select("type, payment_method, amount")
         .gte("transaction_date", range.from)
         .lte("transaction_date", range.to)
         .neq("payment_status", "cancelled");
 
     if (error) throw new Error(error.message);
 
-    const map = new Map<string, { count: number; amount: number }>();
-    let total = 0;
+    const map = new Map<string, {
+        income: number;
+        expense: number;
+        income_count: number;
+        expense_count: number;
+    }>();
+
+    let totalIncome = 0;
+    let totalExpense = 0;
 
     for (const r of data ?? []) {
         const key = r.payment_method ?? "unspecified";
         const amt = Number(r.amount);
-        total += amt;
-        if (!map.has(key)) map.set(key, { count: 0, amount: 0 });
+
+        if (!map.has(key)) {
+            map.set(key, {
+                income: 0,
+                expense: 0,
+                income_count: 0,
+                expense_count: 0,
+            });
+        }
         const s = map.get(key)!;
-        s.count++;
-        s.amount += amt;
+
+        if (r.type === "income") {
+            s.income += amt;
+            s.income_count++;
+            totalIncome += amt;
+        }
+        if (r.type === "expense") {
+            s.expense += amt;
+            s.expense_count++;
+            totalExpense += amt;
+        }
     }
 
     return Array.from(map.entries())
         .map(([method, s]) => ({
             method,
-            count: s.count,
-            amount: s.amount,
-            pct: total > 0 ? Math.round((s.amount / total) * 10000) / 100 : 0,
+            income: s.income,
+            expense: s.expense,
+            net: s.income - s.expense,
+            income_count: s.income_count,
+            expense_count: s.expense_count,
+            total_count: s.income_count + s.expense_count,
+            pct_income: totalIncome > 0
+                ? Math.round((s.income / totalIncome) * 10000) / 100
+                : 0,
+            pct_expense: totalExpense > 0
+                ? Math.round((s.expense / totalExpense) * 10000) / 100
+                : 0,
         }))
-        .sort((a, b) => b.amount - a.amount);
+        .sort((a, b) => (b.income + b.expense) - (a.income + a.expense));
 }
 
 // ============================================================
@@ -779,7 +821,7 @@ export async function getDayOfWeekStats(
 
     const { data, error } = await supabase
         .from("transactions")
-        .select("amount, transaction_date")
+        .select("type, amount, transaction_date")
         .gte("transaction_date", range.from)
         .lte("transaction_date", range.to)
         .neq("payment_status", "cancelled");
@@ -789,14 +831,29 @@ export async function getDayOfWeekStats(
     const buckets: DayOfWeekStat[] = Array.from({ length: 7 }, (_, i) => ({
         day: i,
         label: DAY_LABELS[i],
-        count: 0,
-        amount: 0,
+        income: 0,
+        expense: 0,
+        net: 0,
+        income_count: 0,
+        expense_count: 0,
+        total_count: 0,
     }));
 
     for (const r of data ?? []) {
         const dow = new Date(r.transaction_date).getUTCDay();
-        buckets[dow].count++;
-        buckets[dow].amount += Number(r.amount);
+        const amt = Number(r.amount);
+        const b = buckets[dow];
+
+        b.total_count++;
+        if (r.type === "income") {
+            b.income += amt;
+            b.income_count++;
+        }
+        if (r.type === "expense") {
+            b.expense += amt;
+            b.expense_count++;
+        }
+        b.net = b.income - b.expense;
     }
 
     return buckets;
