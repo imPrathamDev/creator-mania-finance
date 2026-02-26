@@ -38,6 +38,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { DashboardTopCards } from "@/components/custom/dashboard/Dashboardtopcards";
 import { useRouter } from "next/navigation";
 import { TransactionsTable } from "@/components/custom/tabsles/TransactionsTable";
+import { RevealGroup } from "@/components/custom/reveal-animation";
 
 const periodOptions = [
   "today",
@@ -181,7 +182,7 @@ export default function Home() {
             onViewTransactions={() => router.push("/transactions")}
           />
         </div>
-        <div className="px-4 lg:px-6 grid gap-2">
+        <div className="px-4 lg:px-6 grid gap-4">
           <h3 className="text-2xl font-medium">Transactions</h3>
           <TransactionsTable />
         </div>

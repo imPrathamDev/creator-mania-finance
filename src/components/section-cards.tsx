@@ -390,7 +390,7 @@ export function SectionCards({
         </Card>
       ))}
       {comparison === null &&
-        [0, 1, 3].map((m) => (
+        [0, 1, 2, 3].map((m) => (
           <Card key={m} className="@container/card">
             <CardHeader>
               <Skeleton className="h-4 w-[40%] rounded-lg" />

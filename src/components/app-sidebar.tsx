@@ -35,14 +35,30 @@ import {
 import {
   Building2,
   ChartNoAxesCombined,
+  LogOut,
   Sparkles,
   UsersRound,
 } from "lucide-react";
 import Link from "next/link";
 import { useGeneralStore } from "@/context/genral-context";
+import { Button } from "./ui/button";
+import { createClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
+import { Spinner } from "./ui/spinner";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { setOpenSmartSearch } = useGeneralStore();
+  const [isLoggingOut, setIsLoggingOut] = React.useState(false);
+
+  const router = useRouter();
+
+  const handleLogOut = React.useCallback(async () => {
+    setIsLoggingOut(true);
+    const supabase = createClient();
+    await supabase.auth.signOut({ scope: "global" });
+    router.push("/login");
+  }, [router]);
+
   const data = React.useMemo(() => {
     return {
       navMain: [
@@ -120,13 +136,24 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser
+        <Button variant={"outline"} disabled={isLoggingOut}>
+          {isLoggingOut ? (
+            <>
+              <Spinner /> Logging out...
+            </>
+          ) : (
+            <>
+              <LogOut /> Log out
+            </>
+          )}
+        </Button>
+        {/* <NavUser
           user={{
             name: "shadcn",
             email: "m@example.com",
             avatar: "/avatars/shadcn.jpg",
           }}
-        />
+        /> */}
       </SidebarFooter>
     </Sidebar>
   );
