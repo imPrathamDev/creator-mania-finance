@@ -49,7 +49,7 @@ export function SiteHeader() {
   }, [links, pathname]);
 
   const title = useMemo(() => {
-    if (!matchedKey) {
+    if (matchedKey) {
       return links[matchedKey as keyof typeof links].title;
     }
 
