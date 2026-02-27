@@ -182,12 +182,18 @@ export default function Home() {
             onViewTransactions={() => router.push("/transactions")}
           />
         </div>
-        <div className="px-4 lg:px-6 grid gap-4">
-          <h3 className="text-2xl font-medium">Transactions</h3>
-          <Suspense>
-            <TransactionsTable />
-          </Suspense>
-        </div>
+        {dashboardData !== null && (
+          <div className="px-4 lg:px-6 grid gap-4">
+            <h3 className="text-2xl font-medium">Transactions</h3>
+            <Suspense>
+              <TransactionsTable
+                onCreateTransaction={() => {
+                  router.push("/add-transaction");
+                }}
+              />
+            </Suspense>
+          </div>
+        )}
       </div>
     </div>
   );

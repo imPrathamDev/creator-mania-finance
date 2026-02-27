@@ -830,56 +830,56 @@ const AddTransaction = () => {
           </ComboboxContent>
         </Combobox>
 
-        {form.payment_status === "partially_paid" ||
-          (form.payment_status === "pending" && (
-            <Card className="w-full">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-1">
-                  <CalendarClock className="size-4" /> Set Reminder
-                </CardTitle>
-                <CardDescription>
-                  You can set reminders for income and expenses, we will notify
-                  you via email.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-2">
-                <FormFields
-                  input={{
-                    type: "date",
-                    key: "reminder_date",
-                    name: "reminder_date",
-                    title: "Reminder Date",
-                  }}
-                  setValues={setForm as any}
-                  values={form as any}
-                  hideLabel
-                  disabled={wait}
-                />
-                <FormFields
-                  disabled={wait}
-                  input={{
-                    type: "textarea",
-                    key: "reminder_message",
-                    name: "reminder_message",
-                    title: "Reminder Message",
-                    placeholder: "Message here (Optional)",
-                    rows: 5,
-                  }}
-                  setValues={setForm as any}
-                  values={form as any}
-                  hideLabel
-                />
-                <Alert>
-                  <InfoIcon />
-                  <AlertTitle>Important Note</AlertTitle>
-                  <AlertDescription>
-                    There can be few hours difference in reminder notifications
-                    because of timezone and cron job interval.
-                  </AlertDescription>
-                </Alert>
-              </CardContent>
-            </Card>
-          ))}
+        {(form.payment_status === "partially_paid" ||
+          form.payment_status === "pending") && (
+          <Card className="w-full">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-1">
+                <CalendarClock className="size-4" /> Set Reminder
+              </CardTitle>
+              <CardDescription>
+                You can set reminders for income and expenses, we will notify
+                you via email.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-2">
+              <FormFields
+                input={{
+                  type: "date",
+                  key: "reminder_date",
+                  name: "reminder_date",
+                  title: "Reminder Date",
+                }}
+                setValues={setForm as any}
+                values={form as any}
+                hideLabel
+                disabled={wait}
+              />
+              <FormFields
+                disabled={wait}
+                input={{
+                  type: "textarea",
+                  key: "reminder_message",
+                  name: "reminder_message",
+                  title: "Reminder Message",
+                  placeholder: "Message here (Optional)",
+                  rows: 5,
+                }}
+                setValues={setForm as any}
+                values={form as any}
+                hideLabel
+              />
+              <Alert>
+                <InfoIcon />
+                <AlertTitle>Important Note</AlertTitle>
+                <AlertDescription>
+                  There can be few hours difference in reminder notifications
+                  because of timezone and cron job interval.
+                </AlertDescription>
+              </Alert>
+            </CardContent>
+          </Card>
+        )}
 
         <Button
           onClick={handleAddTransaction}

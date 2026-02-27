@@ -7,6 +7,10 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "npm:resend";
 import { getTodayPendingReminders } from "./helpers.ts";
+import {
+  buildReminderEmailHtml,
+  buildReminderEmailSubject,
+} from "./reminderEmail.ts";
 console.log("Hello from Functions!");
 
 Deno.serve(async (req) => {
@@ -17,7 +21,7 @@ Deno.serve(async (req) => {
     const resendKey = Deno.env.get("RESEND_KEY") ?? "";
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
-    const { reminders, error } = await getTodayPendingReminders(
+    const { reminders, error, date_ist } = await getTodayPendingReminders(
       supabase as any,
     );
 
@@ -39,20 +43,15 @@ Deno.serve(async (req) => {
       );
     }
 
-    let message = ``;
+    const html = buildReminderEmailHtml(reminders, date_ist);
+    const subject = buildReminderEmailSubject(reminders, date_ist);
 
-    reminders.forEach((reminder, index) => {
-      const m = `${index + 1}. ${reminder.transaction?.title} (${reminder.transaction?.type.toUpperCase()})\nAmount: ${reminder.transaction?.amount},\nContact: ${reminder.transaction?.contact?.name},\nReminder Message: ${reminder.message}.\n`;
-      message += m;
-    });
-
-    const finalMessage = `You have ${reminders.length} Pending Payments\n${message}\nAutomated Message By CreatorMania Finance.`;
     const resend = new Resend(resendKey);
     await resend.emails.send({
       from: "Creator Mania Finance <noreply@updates.creatormania.in>",
       to: ["pratham.sharma2105@gmail.com"],
-      subject: "Automatic Payments Reminder",
-      text: finalMessage,
+      subject,
+      html,
     });
 
     return new Response(
