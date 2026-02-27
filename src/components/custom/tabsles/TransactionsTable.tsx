@@ -509,12 +509,14 @@ interface TransactionsTableProps {
   onCreateTransaction?: () => void;
   onEditTransaction?: (t: Transaction) => void;
   onDuplicateTransaction?: (t: Transaction) => void;
+  contactId?: string;
 }
 
 export function TransactionsTable({
   onCreateTransaction,
   onEditTransaction,
   onDuplicateTransaction,
+  contactId,
 }: TransactionsTableProps) {
   const [rowSelection, setRowSelection] = React.useState({});
   const [columnVisibility, setColumnVisibility] =
@@ -559,6 +561,7 @@ export function TransactionsTable({
     pagination: serverPagination,
     setPage,
     setLimit,
+    setContact,
   } = useTransactions({
     withContact: true,
     withTags: true,
@@ -641,6 +644,12 @@ export function TransactionsTable({
     setBulkDeleteOpen(false);
     setRowSelection({});
   };
+
+  React.useEffect(() => {
+    if (contactId) {
+      setContact(contactId);
+    }
+  }, [contactId]);
 
   // ── columns ───────────────────────────────────────────────
   const columns = React.useMemo(
