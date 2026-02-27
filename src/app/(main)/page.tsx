@@ -39,6 +39,8 @@ import { DashboardTopCards } from "@/components/custom/dashboard/Dashboardtopcar
 import { useRouter } from "next/navigation";
 import { TransactionsTable } from "@/components/custom/tabsles/TransactionsTable";
 import { RevealGroup } from "@/components/custom/reveal-animation";
+import { BanksDashboardCard } from "@/components/custom/dashboard/banks";
+import { useBanks } from "@/hooks/use-banks";
 
 const periodOptions = [
   "today",
@@ -79,6 +81,7 @@ export default function Home() {
     setDashboardData(data);
     console.log(data);
   }, [selectedPeriod, date]);
+  const { banks, loading } = useBanks();
   const router = useRouter();
   useEffect(() => {
     fetchDashboardAnalytics();
@@ -154,6 +157,15 @@ export default function Home() {
           period={selectedPeriod}
           date={date && date.from && date.to ? (date as any) : undefined}
         />
+        <div className="px-4 lg:px-6">
+          <BanksDashboardCard
+            banks={banks}
+            loading={loading}
+            onViewAll={() => {
+              router.push("/banks");
+            }}
+          />
+        </div>
         <div className="px-4 lg:px-6">
           <ChartAreaInteractive
             timeSeries={dashboardData ? dashboardData.timeSeries : null}

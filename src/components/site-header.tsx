@@ -28,6 +28,9 @@ export function SiteHeader() {
         title: "All Transactions",
       },
       "/transactions/*": { title: "Transaction Details" },
+      "/contacts/*": { title: "Contact Details" },
+      "/banks": { title: "Banks" },
+      "/settings": { title: "Settings" },
       "/ai": {
         title: "AI Financial Assistant",
         description:

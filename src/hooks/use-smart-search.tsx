@@ -9,7 +9,13 @@ import {
   TransactionResult,
 } from "@/types/hooks/use-smart-search";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { LayoutDashboard, Settings, Sparkles, UsersRound } from "lucide-react";
+import {
+  Landmark,
+  LayoutDashboard,
+  Settings,
+  Sparkles,
+  UsersRound,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 const supabase = createClient();
@@ -19,6 +25,7 @@ const NAV_LINKS: NavLink[] = [
   { title: "Contacts", url: "/contacts", icon: UsersRound },
   { title: "Settings", url: "/settings", icon: Settings },
   { title: "AI Chat", url: "/ai", icon: Sparkles },
+  { title: "Banks", url: "/banks", icon: Landmark },
 ];
 
 const EMPTY_RESULTS: SmartSearchResults = {

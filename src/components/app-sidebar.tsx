@@ -35,6 +35,7 @@ import {
 import {
   Building2,
   ChartNoAxesCombined,
+  Landmark,
   LogOut,
   Sparkles,
   UsersRound,
@@ -71,6 +72,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           title: "Contacts",
           url: "/contacts",
           icon: UsersRound,
+        },
+        {
+          title: "Banks",
+          url: "/banks",
+          icon: Landmark,
         },
       ],
       navSecondary: [

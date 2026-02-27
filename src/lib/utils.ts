@@ -1,4 +1,4 @@
-import { clsx, type ClassValue } from "clsx";
+import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
 export function cn(...inputs: ClassValue[]) {
@@ -20,4 +20,26 @@ export function isStringArray(value: any): value is string[] {
 
   // If both checks pass, it's an array of strings
   return true;
+}
+
+export function fmt(amount: number) {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
+
+export function fmtDate(d: string) {
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(d));
+}
+
+export function balanceClass(balance: number) {
+  if (balance > 0) return "text-green-600 dark:text-green-400";
+  if (balance < 0) return "text-red-600   dark:text-red-400";
+  return "text-muted-foreground";
 }

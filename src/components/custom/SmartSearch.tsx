@@ -76,6 +76,7 @@ function SmartSearch() {
                     onSelect={() => {
                       if (nav.url) {
                         router.push(nav.url);
+                        setOpenSmartSearch(false);
                       }
                     }}
                   >
