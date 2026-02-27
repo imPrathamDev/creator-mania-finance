@@ -9,10 +9,18 @@ import React, {
 } from "react";
 import { GeneralContextType } from "@/types/context";
 
-const GeneralContext = createContext<GeneralContextType>({
+const defaultValues: GeneralContextType = {
   openSmartSearch: false,
   setOpenSmartSearch: () => {},
-});
+  settings: {
+    field: {},
+    model: "gpt-4o",
+    is_millify_number: false,
+  },
+  setSettings: (data) => {},
+};
+
+const GeneralContext = createContext<GeneralContextType>(defaultValues);
 
 interface GeneralProviderProps {
   children: ReactNode;
@@ -21,6 +29,17 @@ interface GeneralProviderProps {
 export const GeneralProvider: React.FC<GeneralProviderProps> = memo(
   ({ children }) => {
     const [openSmartSearch, setOpenSmartSearch] = useState(false);
+    const [settings, setSettings] = useState(
+      typeof window !== "undefined"
+        ? JSON.parse(localStorage.getItem("settings") ?? "{}")
+        : defaultValues.settings,
+    );
+
+    React.useEffect(() => {
+      if (settings) {
+        localStorage.setItem("settings", JSON.stringify(settings));
+      }
+    }, [settings]);
 
     React.useEffect(() => {
       const down = (e: KeyboardEvent) => {
@@ -39,6 +58,8 @@ export const GeneralProvider: React.FC<GeneralProviderProps> = memo(
         value={{
           openSmartSearch,
           setOpenSmartSearch,
+          setSettings,
+          settings,
         }}
       >
         {children}
