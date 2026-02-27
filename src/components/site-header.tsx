@@ -27,6 +27,7 @@ export function SiteHeader() {
       "/transactions": {
         title: "All Transactions",
       },
+      "/transactions/*": { title: "Transaction Details" },
       "/ai": {
         title: "AI Financial Assistant",
         description:
@@ -35,23 +36,33 @@ export function SiteHeader() {
     };
   }, []);
 
+  const matchedKey = useMemo(() => {
+    if (links[pathname as keyof typeof links]) return pathname;
+
+    const wildcardMatch = Object.keys(links).find((key) => {
+      if (!key.includes("*")) return false;
+      const regex = new RegExp("^" + key.replace("*", ".+") + "$");
+      return regex.test(pathname);
+    });
+
+    return wildcardMatch ?? null;
+  }, [links, pathname]);
+
   const title = useMemo(() => {
-    if (links[pathname as keyof typeof links]) {
-      return links[pathname as keyof typeof links].title;
+    if (!matchedKey) {
+      return links[matchedKey as keyof typeof links].title;
     }
 
     return "Untitled";
-  }, [links, pathname]);
+  }, [matchedKey]);
 
   const description = useMemo(() => {
-    if (links[pathname as keyof typeof links]) {
-      return "description" in links[pathname as keyof typeof links]
-        ? (links as any)[pathname as keyof typeof links].description
-        : undefined;
+    if (matchedKey) {
+      return (links as any)[matchedKey as keyof typeof links].description;
     }
 
     return undefined;
-  }, [links, pathname]);
+  }, [matchedKey]);
 
   return (
     <header className="flex h-(--header-height) shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">
