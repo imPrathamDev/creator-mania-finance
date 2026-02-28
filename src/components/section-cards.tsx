@@ -16,6 +16,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Button } from "./ui/button";
 import { useGeneralStore } from "@/context/genral-context";
 import { millifyNumbers } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 
 const periodOptions = [
   "today",
@@ -223,6 +224,26 @@ export function SectionCards({
           previous_value: comparison.previous.total_expense,
         },
         {
+          title: "Pending Transactions",
+          heading:
+            comparison.current.pending_count > 0
+              ? "Action needed"
+              : "All clear",
+          description:
+            comparison.current.pending_count > 0
+              ? `You have ${comparison.current.pending_count} pending transaction${
+                  comparison.current.pending_count !== 1 ? "s" : ""
+                } in ${periodLabel}`
+              : `No pending transactions in ${periodLabel}`,
+          value: comparison.current.pending_count,
+          change: null,
+          up: comparison.current.pending_count > 0 ? false : null,
+          badge: null,
+          prefix: null,
+          previous_value: undefined,
+          link: "/transactions?status=pending",
+        },
+        {
           title: "Total Transactions",
           heading:
             count.up === null
@@ -243,25 +264,7 @@ export function SectionCards({
           prefix: null,
           previous_value: undefined,
         },
-        {
-          title: "Pending Transactions",
-          heading:
-            comparison.current.pending_count > 0
-              ? "Action needed"
-              : "All clear",
-          description:
-            comparison.current.pending_count > 0
-              ? `You have ${comparison.current.pending_count} pending transaction${
-                  comparison.current.pending_count !== 1 ? "s" : ""
-                } in ${periodLabel}`
-              : `No pending transactions in ${periodLabel}`,
-          value: comparison.current.pending_count,
-          change: null,
-          up: comparison.current.pending_count > 0 ? false : null,
-          badge: null,
-          prefix: null,
-          previous_value: undefined,
-        },
+
         {
           title: "Partially Paid",
           heading:
@@ -311,7 +314,7 @@ export function SectionCards({
   // Split into always-visible (first 4) and extra cards
   const visibleCards = data.slice(0, 4);
   const extraCards = data.slice(4);
-
+  const router = useRouter();
   return (
     <div className="w-full grid gap-3">
       <motion.div
@@ -320,7 +323,15 @@ export function SectionCards({
       >
         {/* Always visible first 4 cards */}
         {visibleCards.map((item, index) => (
-          <Card key={item.title} className="@container/card">
+          <Card
+            key={item.title}
+            className="@container/card"
+            onClick={() => {
+              if (item.link) {
+                router.push(item.link);
+              }
+            }}
+          >
             <CardHeader>
               <CardDescription>{item.title}</CardDescription>
               <div>

@@ -99,6 +99,7 @@ import {
 import { useQueryState } from "nuqs";
 import { millifyNumbers } from "@/lib/utils";
 import { useGeneralStore } from "@/context/genral-context";
+import { useSearchParams } from "next/navigation";
 
 // ============================================================
 //  HELPERS
@@ -545,7 +546,9 @@ export function TransactionsTable({
   );
   const [deletingBulk, setDeletingBulk] = React.useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = React.useState(false);
-
+  const searchParams = useSearchParams();
+  const _tag_id = searchParams.get("tag");
+  const _payment_status = searchParams.get("status");
   // ── transactions hook ─────────────────────────────────────
   const {
     transactions,
@@ -574,7 +577,15 @@ export function TransactionsTable({
     withTags: true,
     pagination: { limit: 10 },
     filters: {
-      contact_id: contactId,
+      ...(contactId && {
+        contact_id: contactId,
+      }),
+      ...(_tag_id && {
+        tag_ids: [_tag_id],
+      }),
+      ...(_payment_status && {
+        payment_status: _payment_status as any,
+      }),
     },
   });
 
@@ -594,7 +605,7 @@ export function TransactionsTable({
   const [methodFilter, setMethodFilter] = useQueryState("methodFilter", {
     defaultValue: "all",
   });
-  const [tagFilter, setTagFilter] = useQueryState("tag", {
+  const [tagFilter, setTagFilter] = useQueryState("tagFilter", {
     defaultValue: "all",
   });
 
@@ -617,6 +628,16 @@ export function TransactionsTable({
     setPage(pagination.pageIndex + 1);
     setLimit(pagination.pageSize);
   }, [pagination.pageIndex, pagination.pageSize, setPage, setLimit]);
+
+  React.useEffect(() => {
+    if (_payment_status) {
+      setStatusFilter(_payment_status);
+    }
+
+    if (_tag_id) {
+      setTagFilter(_tag_id);
+    }
+  }, [_payment_status]);
 
   // ── filter handlers ───────────────────────────────────────
   const handleTypeChange = (val: string) => {
