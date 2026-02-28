@@ -39,6 +39,62 @@ export type Database = {
   };
   public: {
     Tables: {
+      ai_chat_messages: {
+        Row: {
+          chat_id: string;
+          content: string;
+          created_at: string;
+          id: string;
+          role: string;
+          tool_calls: Json | null;
+        };
+        Insert: {
+          chat_id: string;
+          content: string;
+          created_at?: string;
+          id?: string;
+          role: string;
+          tool_calls?: Json | null;
+        };
+        Update: {
+          chat_id?: string;
+          content?: string;
+          created_at?: string;
+          id?: string;
+          role?: string;
+          tool_calls?: Json | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ai_chat_messages_chat_id_fkey";
+            columns: ["chat_id"];
+            isOneToOne: false;
+            referencedRelation: "ai_chats";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      ai_chats: {
+        Row: {
+          created_at: string;
+          id: string;
+          title: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          title?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          title?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       banks: {
         Row: {
           balance: number;

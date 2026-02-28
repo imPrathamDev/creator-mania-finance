@@ -5,7 +5,7 @@ import React from "react";
 
 function AIPage() {
   return (
-    <div className="w-full h-full">
+    <div className="w-full h-full p-2">
       <AiChat />
     </div>
   );
