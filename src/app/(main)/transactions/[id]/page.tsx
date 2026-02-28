@@ -85,6 +85,8 @@ import type {
   TransactionUpdate,
 } from "@/types/hooks/use-transactions";
 import { createClient } from "@/lib/supabase/client";
+import { useGeneralStore } from "@/context/genral-context";
+import { millifyNumbers } from "@/lib/utils";
 
 const supabase = createClient();
 
@@ -408,6 +410,7 @@ export default function TransactionDetailPage() {
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
+  const { settings } = useGeneralStore();
 
   const [txn, setTxn] = React.useState<FullTransaction | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -654,7 +657,9 @@ export default function TransactionDetailPage() {
           >
             <div className="text-3xl font-bold tabular-nums">
               {isIncome ? "+" : "−"}
-              {fmt(txn.amount, txn.currency)}
+              {settings.is_millify_number
+                ? millifyNumbers(txn.amount)
+                : fmt(txn.amount, txn.currency)}
             </div>
             <div className="text-xs text-muted-foreground mt-0.5">
               {txn.currency}

@@ -14,6 +14,8 @@ import { Skeleton } from "./ui/skeleton";
 import { format } from "date-fns";
 import { AnimatePresence, motion } from "motion/react";
 import { Button } from "./ui/button";
+import { useGeneralStore } from "@/context/genral-context";
+import { millifyNumbers } from "@/lib/utils";
 
 const periodOptions = [
   "today",
@@ -147,13 +149,13 @@ export function SectionCards({
   const periodLabel = getPeriodLabel(period, date);
   const prevPeriodLabel = getPreviousPeriodLabel(period, date);
   const [showMore, setShowMore] = useState(false);
+  const { settings } = useGeneralStore();
   const data = useMemo(() => {
     if (comparison !== null) {
       const net = resolveChange(comparison.changes.net_pct);
       const income = resolveChange(comparison.changes.income_pct);
       const expense = resolveChange(comparison.changes.expense_pct);
       const count = resolveChange(comparison.changes.count_pct);
-
       return [
         {
           title: "Total Net Profit",
@@ -324,7 +326,9 @@ export function SectionCards({
               <div>
                 <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
                   {item.prefix}
-                  {item.value}
+                  {settings.is_millify_number
+                    ? millifyNumbers(item.value)
+                    : item.value}
                 </CardTitle>
                 {item.previous_value !== undefined && (
                   <p className="text-sm text-muted-foreground">

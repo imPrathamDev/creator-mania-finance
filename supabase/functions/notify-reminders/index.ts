@@ -46,10 +46,49 @@ Deno.serve(async (req) => {
     const html = buildReminderEmailHtml(reminders, date_ist);
     const subject = buildReminderEmailSubject(reminders, date_ist);
 
+    const { data: emails, error: emailListError } = await supabase
+      .from("email_list")
+      .select("*");
+
+    if (error) {
+      console.log(error);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: emailListError?.message,
+        }),
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*", // Don't forget CORS on errors too!
+            "Access-Control-Allow-Headers":
+              "authorization, x-client-info, apikey, content-type",
+          },
+        },
+      );
+    }
+
+    if (!emails || !(emails.length > 0)) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "no emails found.",
+        }),
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*", // Don't forget CORS on errors too!
+            "Access-Control-Allow-Headers":
+              "authorization, x-client-info, apikey, content-type",
+          },
+        },
+      );
+    }
+
     const resend = new Resend(resendKey);
     await resend.emails.send({
       from: "Creator Mania Finance <noreply@updates.creatormania.in>",
-      to: ["pratham.sharma2105@gmail.com"],
+      to: emails.map((list: { id: number; email: string }) => list.email),
       subject,
       html,
     });

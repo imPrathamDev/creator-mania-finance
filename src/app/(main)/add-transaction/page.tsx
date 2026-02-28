@@ -73,6 +73,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { RevealGroup } from "@/components/custom/reveal-animation";
+import { useGeneralStore } from "@/context/genral-context";
 
 // ── Type selector ────────────────────────────────────────────────────────────
 
@@ -184,6 +185,9 @@ const AddTransaction = () => {
     amount?: number;
     reminder_message?: string;
     reminder_date?: Date;
+    reference_number?: string;
+    receipt_url?: string;
+    invoice_number?: string;
   }>({
     title: "",
     description: "",
@@ -214,7 +218,7 @@ const AddTransaction = () => {
   const [wait, setWait] = useState(false);
   const [waitSate, setWaitState] = useState("Please wait...");
   const [cachedTags, setCacheTags] = useState<Tag[]>([]);
-
+  const { settings } = useGeneralStore();
   const handleLabel = useCallback(
     (contact: string) => {
       const name = contacts.find((f) => f.id === contact)?.name;
@@ -408,9 +412,6 @@ const AddTransaction = () => {
     }
     try {
       setWait(true);
-      // const unlinkedTags = form.tags.filter((f) => typeof f === "string");
-      // const linkedTags = form.tags.filter((f) => typeof f !== "string");
-      console.log(form.tags, form.tagsToCreate);
 
       const supabase = createClient();
       let c: string;
@@ -450,6 +451,15 @@ const AddTransaction = () => {
           notes: form.notes,
           ...(form.reminder_date && {
             due_date: form.reminder_date.toISOString(),
+          }),
+          ...(form.invoice_number && {
+            invoice_number: form.invoice_number,
+          }),
+          ...(form.reference_number && {
+            reference_number: form.reference_number,
+          }),
+          ...(form.receipt_url && {
+            receipt_url: form.receipt_url,
           }),
         })
         .select("*")
@@ -492,8 +502,6 @@ const AddTransaction = () => {
           }),
         ),
       ]);
-
-      console.log(_d);
 
       if (
         (form.payment_status === "partially_paid" ||
@@ -881,6 +889,56 @@ const AddTransaction = () => {
           </Card>
         )}
 
+        {settings.field.invoice_number && (
+          <FormFields
+            disabled={wait}
+            input={{
+              type: "text",
+              key: "invoice_number",
+              name: "invoice_number",
+              title: "Invoice Number",
+              placeholder: "Invoice Number (Optional)",
+              inputAttributeType: "text",
+            }}
+            setValues={setForm as any}
+            values={form as any}
+            hideLabel
+          />
+        )}
+
+        {settings.field.receipt_url && (
+          <FormFields
+            disabled={wait}
+            input={{
+              type: "text",
+              key: "receipt_url",
+              name: "receipt_url",
+              title: "Receipt URL",
+              placeholder: "Receipt URL (Optional)",
+              inputAttributeType: "text",
+            }}
+            setValues={setForm as any}
+            values={form as any}
+            hideLabel
+          />
+        )}
+
+        {settings.field.reference_number && (
+          <FormFields
+            disabled={wait}
+            input={{
+              type: "text",
+              key: "reference_number",
+              name: "reference_number",
+              title: "Reference Number",
+              placeholder: "Reference Number (Optional)",
+              inputAttributeType: "text",
+            }}
+            setValues={setForm as any}
+            values={form as any}
+            hideLabel
+          />
+        )}
         <Button
           onClick={handleAddTransaction}
           disabled={wait}

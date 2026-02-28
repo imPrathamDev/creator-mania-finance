@@ -97,6 +97,8 @@ import {
   type PaymentMethod,
 } from "@/hooks/use-payments-helpers";
 import { useQueryState } from "nuqs";
+import { millifyNumbers } from "@/lib/utils";
+import { useGeneralStore } from "@/context/genral-context";
 
 // ============================================================
 //  HELPERS
@@ -215,6 +217,7 @@ function buildColumns(
   onDuplicate: (t: Transaction) => void,
   deletingId: string | null,
   updatingId: string | null,
+  is_millify_number?: boolean,
 ): ColumnDef<Transaction>[] {
   return [
     // ── Select ──────────────────────────────────────────────
@@ -298,7 +301,9 @@ function buildColumns(
             }`}
           >
             {t.type === "expense" ? "−" : "+"}
-            {formatCurrency(t.amount, t.currency)}
+            {is_millify_number
+              ? millifyNumbers(t.amount)
+              : formatCurrency(t.amount, t.currency)}
           </div>
         );
       },
@@ -526,6 +531,8 @@ export function TransactionsTable({
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     [],
   );
+  const { settings } = useGeneralStore();
+
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [pagination, setPagination] = React.useState({
     pageIndex: 0,
@@ -566,6 +573,9 @@ export function TransactionsTable({
     withContact: true,
     withTags: true,
     pagination: { limit: 10 },
+    filters: {
+      contact_id: contactId,
+    },
   });
 
   // ── tags hook (for filter dropdown) ──────────────────────
@@ -645,11 +655,11 @@ export function TransactionsTable({
     setRowSelection({});
   };
 
-  React.useEffect(() => {
-    if (contactId) {
-      setContact(contactId);
-    }
-  }, [contactId]);
+  // React.useEffect(() => {
+  //   if (contactId) {
+  //     setContact(contactId);
+  //   }
+  // }, [contactId]);
 
   // ── columns ───────────────────────────────────────────────
   const columns = React.useMemo(
@@ -661,8 +671,16 @@ export function TransactionsTable({
         (t) => onDuplicateTransaction?.(t),
         deleting,
         updating,
+        settings.is_millify_number,
       ),
-    [deleting, updating, onEditTransaction, onDuplicateTransaction, markAsPaid],
+    [
+      deleting,
+      updating,
+      onEditTransaction,
+      onDuplicateTransaction,
+      markAsPaid,
+      settings.is_millify_number,
+    ],
   );
 
   // ── table ─────────────────────────────────────────────────

@@ -13,7 +13,11 @@ const defaultValues: GeneralContextType = {
   openSmartSearch: false,
   setOpenSmartSearch: () => {},
   settings: {
-    field: {},
+    field: {
+      invoice_number: false,
+      receipt_url: false,
+      reference_number: false,
+    },
     model: "gpt-4o",
     is_millify_number: false,
   },
@@ -31,7 +35,10 @@ export const GeneralProvider: React.FC<GeneralProviderProps> = memo(
     const [openSmartSearch, setOpenSmartSearch] = useState(false);
     const [settings, setSettings] = useState(
       typeof window !== "undefined"
-        ? JSON.parse(localStorage.getItem("settings") ?? "{}")
+        ? JSON.parse(
+            localStorage.getItem("settings") ??
+              JSON.stringify({ ...defaultValues.settings }),
+          )
         : defaultValues.settings,
     );
 

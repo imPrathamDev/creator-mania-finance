@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
+import millify from "millify";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -43,3 +44,10 @@ export function balanceClass(balance: number) {
   if (balance < 0) return "text-red-600   dark:text-red-400";
   return "text-muted-foreground";
 }
+
+export const millifyNumbers = (value: number, precision?: number) => {
+  return millify(value, {
+    precision: precision ?? 3,
+    locales: "en-IN",
+  });
+};
