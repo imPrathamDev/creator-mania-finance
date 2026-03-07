@@ -5,7 +5,7 @@ import { DataTable } from "@/components/data-table";
 import { SectionCards } from "@/components/section-cards";
 
 import data from "../data.json";
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, use, useCallback, useEffect, useState } from "react";
 import {
   DashboardAnalytics,
   getDashboardAnalytics,
@@ -86,6 +86,7 @@ export default function Home() {
   useEffect(() => {
     fetchDashboardAnalytics();
   }, [fetchDashboardAnalytics]);
+
   return (
     <div className="@container/main flex flex-1 flex-col gap-2">
       <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
@@ -156,6 +157,7 @@ export default function Home() {
           comparison={dashboardData === null ? null : dashboardData.comparison}
           period={selectedPeriod}
           date={date && date.from && date.to ? (date as any) : undefined}
+          pending={dashboardData ? dashboardData.pending : null}
         />
         <div className="px-4 lg:px-6">
           <BanksDashboardCard

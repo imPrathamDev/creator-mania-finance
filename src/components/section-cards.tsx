@@ -8,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { DashboardAnalytics } from "@/lib/analytics";
+import { DashboardAnalytics, PendingOverview } from "@/lib/analytics";
 import { useMemo, useState } from "react";
 import { Skeleton } from "./ui/skeleton";
 import { format } from "date-fns";
@@ -142,175 +142,231 @@ export function SectionCards({
   comparison,
   period,
   date,
+  pending,
 }: {
   comparison: DashboardAnalytics["comparison"] | null;
   period: Period;
   date?: DateRange;
+  pending: PendingOverview | null;
 }) {
   const periodLabel = getPeriodLabel(period, date);
   const prevPeriodLabel = getPreviousPeriodLabel(period, date);
   const [showMore, setShowMore] = useState(false);
   const { settings } = useGeneralStore();
   const data = useMemo(() => {
-    if (comparison !== null) {
-      const net = resolveChange(comparison.changes.net_pct);
-      const income = resolveChange(comparison.changes.income_pct);
-      const expense = resolveChange(comparison.changes.expense_pct);
-      const count = resolveChange(comparison.changes.count_pct);
-      return [
-        {
-          title: "Total Net Profit",
-          heading:
-            net.up === null
-              ? "No change in net profit"
-              : net.up
-                ? "You're in the green"
-                : "You're running at a loss",
-          description:
-            net.up === null
-              ? `Net profit held steady compared to ${prevPeriodLabel}`
-              : net.up
-                ? `Net profit is up ${comparison.changes.net_pct}% compared to ${prevPeriodLabel}`
-                : `Net profit is down ${Math.abs(
-                    comparison.changes.net_pct!,
-                  )}% compared to ${prevPeriodLabel}`,
-          value: comparison.current.net,
-          change: comparison.changes.net_pct,
-          up: net.up,
-          badge: net.badge,
-          prefix: "₹",
-          previous_value: comparison.previous.net,
-        },
-        {
-          title: "Total Income",
-          heading:
-            income.up === null
-              ? "Income unchanged"
-              : income.up
-                ? "Income up"
-                : "Income down",
-          description:
-            income.up === null
-              ? `Income was the same as ${prevPeriodLabel}`
-              : income.up
-                ? `Income increased compared to ${prevPeriodLabel}`
-                : `Income decreased compared to ${prevPeriodLabel}`,
-          value: comparison.current.total_income,
-          change: comparison.changes.income_pct,
-          up: income.up,
-          badge: income.badge,
-          prefix: "₹",
-          previous_value: comparison.previous.total_income,
-        },
-        {
-          title: "Total Expense",
-          heading:
-            expense.up === null
-              ? "Expenses unchanged"
-              : expense.up
-                ? "Expenses up"
-                : "Expenses down",
-          description:
-            expense.up === null
-              ? `Expenses were the same as ${prevPeriodLabel}`
-              : expense.up
-                ? `Expenses increased compared to ${prevPeriodLabel}`
-                : `Expenses decreased compared to ${prevPeriodLabel}`,
-          value: comparison.current.total_expense,
-          change: comparison.changes.expense_pct,
-          up: expense.up,
-          badge: expense.badge,
-          prefix: "₹",
-          previous_value: comparison.previous.total_expense,
-        },
-        {
-          title: "Pending Transactions",
-          heading:
-            comparison.current.pending_count > 0
-              ? "Action needed"
-              : "All clear",
-          description:
-            comparison.current.pending_count > 0
-              ? `You have ${comparison.current.pending_count} pending transaction${
-                  comparison.current.pending_count !== 1 ? "s" : ""
-                } in ${periodLabel}`
-              : `No pending transactions in ${periodLabel}`,
-          value: comparison.current.pending_count,
-          change: null,
-          up: comparison.current.pending_count > 0 ? false : null,
-          badge: null,
-          prefix: null,
-          previous_value: undefined,
-          link: "/transactions?status=pending",
-        },
-        {
-          title: "Total Transactions",
-          heading:
-            count.up === null
-              ? "Transaction volume unchanged"
-              : count.up
-                ? "More transactions"
-                : "Fewer transactions",
-          description:
-            count.up === null
-              ? `Same number of transactions as ${prevPeriodLabel}`
-              : count.up
-                ? `Transaction volume increased compared to ${prevPeriodLabel}`
-                : `Transaction volume decreased compared to ${prevPeriodLabel}`,
-          value: comparison.current.txn_count,
-          change: comparison.changes.count_pct,
-          up: count.up,
-          badge: count.badge,
-          prefix: null,
-          previous_value: undefined,
-        },
-
-        {
-          title: "Partially Paid",
-          heading:
-            comparison.current.partially_count > 0
-              ? "Incomplete payments"
-              : "All clear",
-          description:
-            comparison.current.partially_count > 0
-              ? `${comparison.current.partially_count} transaction${
-                  comparison.current.partially_count !== 1 ? "s are" : " is"
-                } partially paid in ${periodLabel}`
-              : `No partially paid transactions in ${periodLabel}`,
-          value: comparison.current.partially_count,
-          change: null,
-          up: null,
-          badge: null,
-          prefix: null,
-          previous_value: undefined,
-        },
-        {
-          title: "Average Income",
-          heading: null,
-          description: `Average income per transaction in ${periodLabel}`,
-          value: comparison.current.avg_income,
-          change: null,
-          up: null,
-          badge: null,
-          prefix: "₹",
-          previous_value: undefined,
-        },
-        {
-          title: "Average Expense",
-          heading: null,
-          description: `Average expense per transaction in ${periodLabel}`,
-          value: comparison.current.avg_expense,
-          change: null,
-          up: null,
-          badge: null,
-          prefix: "₹",
-          previous_value: undefined,
-        },
-      ];
+    if (comparison === null || pending === null) {
+      return [];
     }
-    return [];
-  }, [comparison, periodLabel, prevPeriodLabel]);
 
+    const net = resolveChange(comparison.changes.net_pct);
+    const income = resolveChange(comparison.changes.income_pct);
+    const expense = resolveChange(comparison.changes.expense_pct);
+    const count = resolveChange(comparison.changes.count_pct);
+    return [
+      {
+        title: "Total Net Profit",
+        heading:
+          net.up === null
+            ? "No change in net profit"
+            : net.up
+              ? "You're in the green"
+              : "You're running at a loss",
+        description:
+          net.up === null
+            ? `Net profit held steady compared to ${prevPeriodLabel}`
+            : net.up
+              ? `Net profit is up ${comparison.changes.net_pct}% compared to ${prevPeriodLabel}`
+              : `Net profit is down ${Math.abs(
+                  comparison.changes.net_pct!,
+                )}% compared to ${prevPeriodLabel}`,
+        value: comparison.current.net,
+        change: comparison.changes.net_pct,
+        up: net.up,
+        badge: net.badge,
+        prefix: "₹",
+        previous_value: comparison.previous.net,
+      },
+      {
+        title: "Total Income",
+        heading:
+          income.up === null
+            ? "Income unchanged"
+            : income.up
+              ? "Income up"
+              : "Income down",
+        description:
+          income.up === null
+            ? `Income was the same as ${prevPeriodLabel}`
+            : income.up
+              ? `Income increased compared to ${prevPeriodLabel}`
+              : `Income decreased compared to ${prevPeriodLabel}`,
+        value: comparison.current.total_income,
+        change: comparison.changes.income_pct,
+        up: income.up,
+        badge: income.badge,
+        prefix: "₹",
+        previous_value: comparison.previous.total_income,
+      },
+      {
+        title: "Total Expense",
+        heading:
+          expense.up === null
+            ? "Expenses unchanged"
+            : expense.up
+              ? "Expenses up"
+              : "Expenses down",
+        description:
+          expense.up === null
+            ? `Expenses were the same as ${prevPeriodLabel}`
+            : expense.up
+              ? `Expenses increased compared to ${prevPeriodLabel}`
+              : `Expenses decreased compared to ${prevPeriodLabel}`,
+        value: comparison.current.total_expense,
+        change: comparison.changes.expense_pct,
+        up: expense.up,
+        badge: expense.badge,
+        prefix: "₹",
+        previous_value: comparison.previous.total_expense,
+      },
+      {
+        title: "Pending Transactions",
+        heading: pending.pending_count > 0 ? "Action needed" : "All clear",
+        description:
+          pending.pending_count > 0
+            ? `${pending.pending_count} pending transaction${
+                pending.pending_count !== 1 ? "s" : ""
+              } totalling ₹${settings.is_millify_number ? millifyNumbers(pending.pending_amount) : pending.pending_amount}`
+            : `No pending transactions in ${periodLabel}`,
+        value: pending.pending_count,
+        change: null,
+        up: pending.pending_count > 0 ? false : null,
+        badge: null,
+        prefix: null,
+        previous_value: undefined,
+        link: "/transactions?status=pending",
+      },
+      {
+        title: "Total Transactions",
+        heading:
+          count.up === null
+            ? "Transaction volume unchanged"
+            : count.up
+              ? "More transactions"
+              : "Fewer transactions",
+        description:
+          count.up === null
+            ? `Same number of transactions as ${prevPeriodLabel}`
+            : count.up
+              ? `Transaction volume increased compared to ${prevPeriodLabel}`
+              : `Transaction volume decreased compared to ${prevPeriodLabel}`,
+        value: comparison.current.txn_count,
+        change: comparison.changes.count_pct,
+        up: count.up,
+        badge: count.badge,
+        prefix: null,
+        previous_value: undefined,
+      },
+      {
+        title: "Overdue Transactions",
+        heading: pending.overdue_count > 0 ? "Overdue payments" : "All clear",
+        description:
+          pending.overdue_count > 0
+            ? `${pending.overdue_count} overdue transaction${
+                pending.overdue_count !== 1 ? "s" : ""
+              } totalling ₹${settings.is_millify_number ? millifyNumbers(pending.overdue_amount) : pending.overdue_amount}${
+                pending.oldest_overdue
+                  ? `, oldest due ${format(new Date(pending.oldest_overdue), "MMM d, yyyy")}`
+                  : ""
+              }`
+            : "No overdue transactions",
+        value: pending.overdue_count,
+        change: null,
+        up: pending.overdue_count > 0 ? false : null,
+        badge: null,
+        prefix: null,
+        previous_value: undefined,
+        link: "/transactions?status=overdue",
+      },
+      {
+        title: "Partially Paid",
+        heading:
+          pending.partially_count > 0 ? "Incomplete payments" : "All clear",
+        description:
+          pending.partially_count > 0
+            ? `${pending.partially_count} transaction${
+                pending.partially_count !== 1 ? "s are" : " is"
+              } partially paid, totalling ₹${settings.is_millify_number ? millifyNumbers(pending.partially_amount) : pending.partially_amount}`
+            : `No partially paid transactions in ${periodLabel}`,
+        value: pending.partially_count,
+        change: null,
+        up: null,
+        badge: null,
+        prefix: null,
+        previous_value: undefined,
+      },
+      {
+        title: "Upcoming (7 days)",
+        heading: pending.upcoming_7d.count > 0 ? "Due soon" : "Nothing due",
+        description:
+          pending.upcoming_7d.count > 0
+            ? `${pending.upcoming_7d.count} transaction${
+                pending.upcoming_7d.count !== 1 ? "s" : ""
+              } due in the next 7 days, totalling ₹${settings.is_millify_number ? millifyNumbers(pending.upcoming_7d.amount) : pending.upcoming_7d.amount}`
+            : "No transactions due in the next 7 days",
+        value: pending.upcoming_7d.count,
+        change: null,
+        up: null,
+        badge: null,
+        prefix: null,
+        previous_value: undefined,
+      },
+      {
+        title: "Upcoming (30 days)",
+        heading:
+          pending.upcoming_30d.count > 0 ? "Due this month" : "Nothing due",
+        description:
+          pending.upcoming_30d.count > 0
+            ? `${pending.upcoming_30d.count} transaction${
+                pending.upcoming_30d.count !== 1 ? "s" : ""
+              } due in the next 30 days, totalling ₹${settings.is_millify_number ? millifyNumbers(pending.upcoming_30d.amount) : pending.upcoming_30d.amount}`
+            : "No transactions due in the next 30 days",
+        value: pending.upcoming_30d.count,
+        change: null,
+        up: null,
+        badge: null,
+        prefix: null,
+        previous_value: undefined,
+      },
+      {
+        title: "Average Income",
+        heading: null,
+        description: `Average income per transaction in ${periodLabel}`,
+        value: comparison.current.avg_income,
+        change: null,
+        up: null,
+        badge: null,
+        prefix: "₹",
+        previous_value: undefined,
+      },
+      {
+        title: "Average Expense",
+        heading: null,
+        description: `Average expense per transaction in ${periodLabel}`,
+        value: comparison.current.avg_expense,
+        change: null,
+        up: null,
+        badge: null,
+        prefix: "₹",
+        previous_value: undefined,
+      },
+    ];
+  }, [
+    comparison,
+    periodLabel,
+    prevPeriodLabel,
+    pending,
+    settings.is_millify_number,
+  ]);
   // Split into always-visible (first 4) and extra cards
   const visibleCards = data.slice(0, 4);
   const extraCards = data.slice(4);
